@@ -1,0 +1,189 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Install OpenSSL Development Packages
+      run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+    - name: Set release tag
+      id: set_tag
+      run: |
+        tag=$(git rev-parse --short=8 ${{ github.sha }})
+        echo "tag=${tag}" >> $GITHUB_ENV
+
+    - name: Build for Linux x86-64
+      run: |
+        rustup target add x86_64-unknown-linux-gnu
+        cargo build --release --target x86_64-unknown-linux-gnu
+        cp target/x86_64-unknown-linux-gnu/release/dupehunter ./dupehunter-linux-x86_64
+        cp target/x86_64-unknown-linux-gnu/release/kodi-random_ep ./koditool-random_ep-linux-x86_64
+        cp target/x86_64-unknown-linux-gnu/release/kodi-tvmode ./koditool-tvmode-linux-x86_64
+
+    - name: Generate Changelog
+      run: echo "# Release Notes" > changelog.txt  # Replace this with your actual changelog content
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          changelog.txt
+          dupehunter-linux-x86_64
+          koditool-random_ep-linux-x86_64
+          koditool-tvmode-linux-x86_64
+        body_path: changelog.txt
+        tag_name: ${{ env.tag }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macOS-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Set release tag
+      id: set_tag
+      run: |
+        tag=$(git rev-parse --short=8 ${{ github.sha }})
+        echo "tag=${tag}" >> $GITHUB_ENV
+
+    - name: Build for macOS
+      run: |
+        rustup target add x86_64-apple-darwin
+        cargo build --release --target x86_64-apple-darwin
+        cp target/x86_64-apple-darwin/release/dupehunter ./dupehunter-macos
+        cp target/x86_64-apple-darwin/release/kodi-random_ep ./koditool-random_ep-macos
+        cp target/x86_64-apple-darwin/release/kodi-tvmode ./koditool-tvmode-macos
+
+    - name: Generate Changelog
+      run: echo "# Release Notes" > changelog.txt  # Replace this with your actual changelog content
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          changelog.txt
+          dupehunter-macos
+          koditool-random_ep-macos
+          koditool-tvmode-macos
+        body_path: changelog.txt
+        tag_name: ${{ env.tag }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable-msvc
+
+    - name: Set release tag
+      id: set_tag
+      shell: powershell
+      run: |
+        $tag = git rev-parse --short=8 $env:GITHUB_SHA
+        Set-Content -Path $env:GITHUB_ENV -Value "tag=$tag"
+
+    - name: Build for Windows x86-64
+      run: |
+        cargo build --release --target x86_64-pc-windows-msvc
+        ls target/x86_64-pc-windows-msvc/release/
+        cp target/x86_64-pc-windows-msvc/release/dupehunter.exe ./dupehunter-windows-x86_64.exe
+        cp target/x86_64-pc-windows-msvc/release/kodi-random_ep.exe ./koditool-random_ep-windows-x86_64.exe
+        cp target/x86_64-pc-windows-msvc/release/kodi-tvmode.exe ./koditool-tvmode-windows-x86_64.exe
+
+    - name: Generate Changelog
+      run: echo "# Release Notes" > changelog.txt  # Replace this with your actual changelog content
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          changelog.txt
+	  dupehunter-windows-x86_64.exe
+          koditool-random_ep-windows-x86_64.exe
+          koditool-tvmode-windows-x86_64.exe
+        body_path: changelog.txt
+        tag_name: ${{ env.tag }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+#  build-freebsd:
+#    runs-on: ubuntu-latest
+#    needs: create-release
+#
+#    steps:
+#    - uses: actions/checkout@v3
+#
+#    - name: Install Rust
+#      run: rustup update stable
+#
+#    - name: Install OpenSSL Development Packages
+#      run: sudo apt-get update && sudo apt-get install -y libssl-dev
+#
+#    - name: Install cross-compilation tools
+#      uses: taiki-e/setup-cross-toolchain-action@v1
+#      with:
+#        target: x86_64-unknown-freebsd
+#    - run: cargo build --release
+#    - run: cp target/x86_64-unknown-freebsd/release/kodi-random_ep ./koditool-random_ep-freebsd-x86_64
+#    - run: cp target/x86_64-unknown-freebsd/release/kodi-tvmode ./koditool-tvmode-freebsd-x86_64
+#
+#    - name: Set release tag
+#      id: set_tag
+#      run: |
+#        tag=$(git rev-parse --short=8 ${{ github.sha }})
+#        echo "::set-output name=tag::${tag}"
+#
+#    - name: Get release ID
+#      id: get_release_id
+#      run: echo "::set-output name=id::$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.set_tag.outputs.tag }} | jq -r '.id')"
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#    - name: Upload binaries
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: Binaries
+#        path: |
+#          koditool-random_ep-freebsd-x86_64
+#          koditool-tvmode-freebsd-x86_64
+#
+#    - name: Attach binaries to release
+#      id: attach_artifacts
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: https://uploads.github.com/repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release_id }}/assets?name=koditool-freebsd-x86_64
+#        asset_path: koditool-freebsd-x86_64
+#        asset_name: koditool-freebsd-x86_64
+#        asset_content_type: application/octet-stream
