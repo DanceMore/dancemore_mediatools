@@ -126,7 +126,7 @@ jobs:
       with:
         files: |
           changelog.txt
-	  dupehunter-windows-x86_64.exe
+          dupehunter-windows-x86_64.exe
           koditool-random_ep-windows-x86_64.exe
           koditool-tvmode-windows-x86_64.exe
         body_path: changelog.txt
