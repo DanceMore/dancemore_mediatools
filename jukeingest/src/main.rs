@@ -1,4 +1,6 @@
 use chrono::{DateTime, Local, Utc};
+use colored::Colorize;
+use dirs::home_dir;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::time::{Duration, SystemTime};
@@ -24,6 +26,7 @@ struct Cli {
     #[clap(short, long)]
     playlist: String,
 
+    // TODO: these two need to conflict
     /// Sets the threshold in days
     #[arg(short, long, default_value = "30")]
     threshold_days: u32,
@@ -41,28 +44,35 @@ fn main() {
     let root_path = &cli.directory;
     let playlist_path = &cli.playlist;
     let threshold_days = &cli.threshold_days;
+    let detect = &cli.detect;
 
     let now = SystemTime::now();
-    let threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
 
-    // last run logic:w
-
+    // last run logic
+    let mut calcd_threshold_days: u64 = 0;
     let last_run_timestamp = read_last_run_timestamp().unwrap_or(None);
 
     if let Some(last_run) = last_run_timestamp {
         let difference = now
             .duration_since(last_run)
             .unwrap_or(Duration::from_secs(0));
-        let calcd_threshold_days = difference.as_secs() / (24 * 60 * 60); // Convert seconds to days
+        calcd_threshold_days = difference.as_secs() / (24 * 60 * 60); // Convert seconds to days
 
-        println!("Last run timestamp: {}", format_system_time(last_run));
-        println!("Threshold days: {}", calcd_threshold_days);
+	println!("{}", format!("[-] Last run timestamp: {}", format_system_time(last_run)).cyan());
+        println!("{} {}", format!("[+] Calculated Threshold (in days):").cyan(), format!("{}", calcd_threshold_days).cyan().bold());
     } else {
-        println!("No last run timestamp found.");
+        println!("{}", "[-] No last run timestamp found.".yellow());
     }
-    save_last_run_timestamp().unwrap_or_else(|err| {
-        eprintln!("Error saving last run timestamp: {}", err);
-    });
+
+    // actually set the timestamp based on CLI args
+    let mut threshold_time: SystemTime = now;
+    if *detect {
+        threshold_time = now - Duration::from_secs((calcd_threshold_days * 24 * 60 * 60).into());
+    } else {
+        threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
+    }
+
+    println!("{}", format_system_time(threshold_time));
 
     // build it for append-only
     let mut playlist_file = match OpenOptions::new()
@@ -81,7 +91,7 @@ fn main() {
     let mut playlist_stdout = io::BufWriter::new(stdout.lock());
 
     if *dryrun {
-        eprintln!("[!] dry-run, doing no work...");
+        eprintln!("{}", format!("[!] dry-run, doing no work...").yellow());
     }
 
     for entry in WalkDir::new(root_path)
@@ -117,43 +127,51 @@ fn main() {
         }
     }
 
-    println!("Playlist file successfully updated at: {}", playlist_path);
+    let _ = playlist_stdout.flush();
+
+    println!("{} {}", format!("[+] Playlist file successfully updated at:").green(), format!("{}", playlist_path).green().bold());
+    println!("{}", format!("[-] writing last_run timestamp file ...").green());
+
+    save_last_run_timestamp().unwrap_or_else(|err| {
+        eprintln!("Error saving last run timestamp: {}", err);
+    });
 }
 
 fn save_last_run_timestamp() -> io::Result<()> {
-    let last_run_path = ".last_run";
-    let timestamp = SystemTime::now();
+    // Get the user's home directory
+    if let Some(mut home_dir) = home_dir() {
+        home_dir.push(".last_run");
 
-    let mut file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(last_run_path)?;
+        let timestamp = SystemTime::now();
 
-    // Use map_err to convert SystemTimeError to io::Error
-    write!(
-        file,
-        "{}",
-        timestamp
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-            .as_secs()
-    )?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(home_dir)?;
 
-    Ok(())
+        // Use map_err to convert SystemTimeError to io::Error
+        write!(file, "{}", timestamp.duration_since(SystemTime::UNIX_EPOCH).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.as_secs())?;
+
+        return Ok(());
+    }
+
+    Err(io::Error::new(io::ErrorKind::Other, "Failed to determine home directory"))
 }
 
 fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {
-    let last_run_path = ".last_run";
+    // Get the user's home directory
+    if let Some(mut home_dir) = home_dir() {
+        home_dir.push(".last_run");
 
-    if let Ok(mut file) = File::open(last_run_path) {
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+        if let Ok(mut file) = File::open(home_dir) {
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
 
-        if let Ok(timestamp) = contents.trim().parse::<u64>() {
-            return Ok(Some(
-                SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp),
-            ));
+            if let Ok(parsed_date) = contents.trim().parse::<u64>() {
+                let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(parsed_date);
+                return Ok(Some(timestamp));
+            }
         }
     }
 
