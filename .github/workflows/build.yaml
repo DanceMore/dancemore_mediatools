@@ -32,6 +32,7 @@ jobs:
         rustup target add x86_64-unknown-linux-gnu
         cargo build --release --target x86_64-unknown-linux-gnu
         cp target/x86_64-unknown-linux-gnu/release/dupehunter ./dupehunter-linux-x86_64
+        cp target/x86_64-unknown-linux-gnu/release/jukeingest ./jukeingest-linux-x86_64
         cp target/x86_64-unknown-linux-gnu/release/kodi-random_ep ./koditool-random_ep-linux-x86_64
         cp target/x86_64-unknown-linux-gnu/release/kodi-tvmode ./koditool-tvmode-linux-x86_64
 
@@ -44,6 +45,7 @@ jobs:
         files: |
           changelog.txt
           dupehunter-linux-x86_64
+          jukeingest-linux-x86_64
           koditool-random_ep-linux-x86_64
           koditool-tvmode-linux-x86_64
         body_path: changelog.txt
@@ -73,6 +75,7 @@ jobs:
         rustup target add x86_64-apple-darwin
         cargo build --release --target x86_64-apple-darwin
         cp target/x86_64-apple-darwin/release/dupehunter ./dupehunter-macos
+        cp target/x86_64-apple-darwin/release/jukeingest ./jukeingest-macos
         cp target/x86_64-apple-darwin/release/kodi-random_ep ./koditool-random_ep-macos
         cp target/x86_64-apple-darwin/release/kodi-tvmode ./koditool-tvmode-macos
 
@@ -85,6 +88,7 @@ jobs:
         files: |
           changelog.txt
           dupehunter-macos
+          jukeingest-macos
           koditool-random_ep-macos
           koditool-tvmode-macos
         body_path: changelog.txt
@@ -115,6 +119,7 @@ jobs:
         cargo build --release --target x86_64-pc-windows-msvc
         ls target/x86_64-pc-windows-msvc/release/
         cp target/x86_64-pc-windows-msvc/release/dupehunter.exe ./dupehunter-windows-x86_64.exe
+        cp target/x86_64-pc-windows-msvc/release/jukeingest.exe ./jukeingest-windows-x86_64.exe
         cp target/x86_64-pc-windows-msvc/release/kodi-random_ep.exe ./koditool-random_ep-windows-x86_64.exe
         cp target/x86_64-pc-windows-msvc/release/kodi-tvmode.exe ./koditool-tvmode-windows-x86_64.exe
 
@@ -127,6 +132,7 @@ jobs:
         files: |
           changelog.txt
           dupehunter-windows-x86_64.exe
+          jukeingest-windows-x86_64.exe
           koditool-random_ep-windows-x86_64.exe
           koditool-tvmode-windows-x86_64.exe
         body_path: changelog.txt
