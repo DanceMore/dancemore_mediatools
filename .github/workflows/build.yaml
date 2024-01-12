@@ -19,7 +19,7 @@ jobs:
         toolchain: stable
 
     - name: Install OpenSSL Development Packages
-      run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      run: sudo apt-get update && sudo apt-get install -y libssl-dev musl-tools
 
     - name: Set release tag
       id: set_tag
@@ -29,12 +29,12 @@ jobs:
 
     - name: Build for Linux x86-64
       run: |
-        rustup target add x86_64-unknown-linux-gnu
-        cargo build --release --target x86_64-unknown-linux-gnu
-        cp target/x86_64-unknown-linux-gnu/release/dupehunter ./dupehunter-linux-x86_64
-        cp target/x86_64-unknown-linux-gnu/release/jukeingest ./jukeingest-linux-x86_64
-        cp target/x86_64-unknown-linux-gnu/release/kodi-random_ep ./koditool-random_ep-linux-x86_64
-        cp target/x86_64-unknown-linux-gnu/release/kodi-tvmode ./koditool-tvmode-linux-x86_64
+        rustup target add x86_64-unknown-linux-musl
+        cargo build --release --target x86_64-unknown-linux-musl
+        cp target/x86_64-unknown-linux-musl/release/dupehunter ./dupehunter-linux-x86_64
+        cp target/x86_64-unknown-linux-musl/release/jukeingest ./jukeingest-linux-x86_64
+        cp target/x86_64-unknown-linux-musl/release/kodi-random_ep ./koditool-random_ep-linux-x86_64
+        cp target/x86_64-unknown-linux-musl/release/kodi-tvmode ./koditool-tvmode-linux-x86_64
 
     - name: Generate Changelog
       run: echo "# Release Notes" > changelog.txt  # Replace this with your actual changelog content
