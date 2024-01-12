@@ -59,8 +59,16 @@ fn main() {
             .unwrap_or(Duration::from_secs(0));
         calcd_threshold_days = difference.as_secs() / (24 * 60 * 60); // Convert seconds to days
 
-	println!("{} {}", format!("[-] Last run timestamp:").cyan(), format_system_time(last_run).cyan().bold());
-        println!("{} {}", format!("[+] Calculated Threshold (in days):").cyan(), format!("{}", calcd_threshold_days).cyan().bold());
+        println!(
+            "{} {}",
+            format!("[-] Last run timestamp:").cyan(),
+            format_system_time(last_run).cyan().bold()
+        );
+        println!(
+            "{} {}",
+            format!("[+] Calculated Threshold (in days):").cyan(),
+            format!("{}", calcd_threshold_days).cyan().bold()
+        );
     } else {
         println!("{}", "[-] No last run timestamp found.".yellow());
     }
@@ -70,13 +78,27 @@ fn main() {
     let mut threshold_time: SystemTime = now;
     if *detect {
         threshold_time = now - Duration::from_secs((calcd_threshold_days * 24 * 60 * 60).into());
-        println!("{}      {}", format!("[+] Using Threshold (in days):").red(), format!("{}", calcd_threshold_days).red().bold());
+        println!(
+            "{}      {}",
+            format!("[+] Using Threshold (in days):").red(),
+            format!("{}", calcd_threshold_days).red().bold()
+        );
     } else {
         threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
-        println!("{}      {}", format!("[+] Using Threshold (in days):").red(), format!("{}", threshold_days).red().bold());
+        println!(
+            "{}      {}",
+            format!("[+] Using Threshold (in days):").red(),
+            format!("{}", threshold_days).red().bold()
+        );
     }
 
-    println!("{}    {}", format!("[-] Threshold time:").red(), format!("{}", format_system_time(threshold_time)).red().bold());
+    println!(
+        "{}    {}",
+        format!("[-] Threshold time:").red(),
+        format!("{}", format_system_time(threshold_time))
+            .red()
+            .bold()
+    );
 
     // build it for append-only
     let mut playlist_file = match OpenOptions::new()
@@ -133,8 +155,15 @@ fn main() {
 
     let _ = playlist_stdout.flush();
 
-    println!("{} {}", format!("[+] Playlist file successfully updated at:").green(), format!("{}", playlist_path).green().bold());
-    println!("{}", format!("[-] writing last_run timestamp file ...").green());
+    println!(
+        "{} {}",
+        format!("[+] Playlist file successfully updated at:").green(),
+        format!("{}", playlist_path).green().bold()
+    );
+    println!(
+        "{}",
+        format!("[-] writing last_run timestamp file ...").green()
+    );
 
     save_last_run_timestamp().unwrap_or_else(|err| {
         eprintln!("Error saving last run timestamp: {}", err);
@@ -160,12 +189,22 @@ fn save_last_run_timestamp() -> io::Result<()> {
             .open(home_dir)?;
 
         // Use map_err to convert SystemTimeError to io::Error
-        write!(file, "{}", timestamp.duration_since(SystemTime::UNIX_EPOCH).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?.as_secs())?;
+        write!(
+            file,
+            "{}",
+            timestamp
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+                .as_secs()
+        )?;
 
         return Ok(());
     }
 
-    Err(io::Error::new(io::ErrorKind::Other, "Failed to determine home directory"))
+    Err(io::Error::new(
+        io::ErrorKind::Other,
+        "Failed to determine home directory",
+    ))
 }
 
 fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use std::fs;
 use std::env;
 use std::error::Error;
+use std::fs;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Get the current directory
     let current_dir = env::current_dir()?;
-    
+
     // Create a HashMap to store file names in a case-insensitive manner
     let mut file_names: HashMap<String, Vec<String>> = HashMap::new();
 

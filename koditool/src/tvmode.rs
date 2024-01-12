@@ -2,14 +2,14 @@ mod kodi_helper;
 use kodi_helper::Config;
 use kodi_helper::RpcClient;
 
-use std::env;
 use std::collections::HashMap;
-use std::time::Duration;
+use std::env;
 use std::io::{self, Write};
+use std::time::Duration;
 use tokio::time::sleep;
 
-use serde_yaml;
 use serde::Deserialize;
+use serde_yaml;
 
 use rand::prelude::SliceRandom;
 
@@ -37,13 +37,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-	    eprintln!("Usage: {} <User>", args[0]);
-	    return Ok(());
+        eprintln!("Usage: {} <User>", args[0]);
+        return Ok(());
     }
     let user = &args[1];
 
     let show_mappings = load_show_mappings()?;
-    let user_shows = show_mappings.shows.get(user).ok_or_else(|| "User not found")?;
+    let user_shows = show_mappings
+        .shows
+        .get(user)
+        .ok_or_else(|| "User not found")?;
 
     if user_shows.is_empty() {
         eprintln!("No shows available for this user.");
@@ -60,7 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !rpc_client.is_active().await? {
             println!("\n[!] no show playing, calling other Rust binary...\n");
 
-            let selected_episode = rpc_client.select_random_episode_by_title(&selected_show_name).await?;
+            let selected_episode = rpc_client
+                .select_random_episode_by_title(&selected_show_name)
+                .await?;
             rpc_client.rpc_play(&selected_episode).await?;
         } else if i == 0 {
             print!("."); // Print a dot

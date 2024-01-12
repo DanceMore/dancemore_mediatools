@@ -1,12 +1,12 @@
-use serde_json::Value;
-use serde::{Deserialize};
-use reqwest::Client;
-use reqwest::header::{HeaderValue, HeaderMap};
+use rand::prelude::SliceRandom;
 use reqwest::header::AUTHORIZATION;
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::Client;
+use serde::Deserialize;
+use serde_json::json;
+use serde_json::Value;
 use std::error::Error;
 use std::fs;
-use rand::prelude::SliceRandom;
-use serde_json::json;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -30,9 +30,12 @@ pub struct Authorization {
 
 impl Authorization {
     pub fn new(username: &str, password: &str) -> Self {
-        let auth_header_value = format!("Basic {}", base64::encode(format!("{}:{}", username, password)))
-            .parse()
-            .expect("failed to create Authorization header");
+        let auth_header_value = format!(
+            "Basic {}",
+            base64::encode(format!("{}:{}", username, password))
+        )
+        .parse()
+        .expect("failed to create Authorization header");
 
         Authorization {
             value: auth_header_value,
@@ -64,31 +67,32 @@ impl RpcClient {
     }
 
     pub async fn select_random_episode_by_title(
-	&self, tv_show_name: &str,
+        &self,
+        tv_show_name: &str,
     ) -> Result<SelectedEpisode, Box<dyn Error>> {
         // Fetch the list of TV shows
         let tv_shows_request_params = json!({
-    	    "jsonrpc": "2.0",
-    	    "method": "VideoLibrary.GetTVShows",
-    	    "params": {
-    		    "properties": ["title"],
-    		    "limits": { "start": 0, "end": 1000 }
-    	    },
-    	    "id": 1
+            "jsonrpc": "2.0",
+            "method": "VideoLibrary.GetTVShows",
+            "params": {
+                "properties": ["title"],
+                "limits": { "start": 0, "end": 1000 }
+            },
+            "id": 1
         });
 
-	let tv_shows_response_json = self.rpc_call(&tv_shows_request_params).await?;
+        let tv_shows_response_json = self.rpc_call(&tv_shows_request_params).await?;
 
         // Extract the "tvshows" array from the "result" field
         let tv_shows = tv_shows_response_json["result"]["tvshows"]
-    	    .as_array()
-    	    .ok_or("TV shows not found in response")?;
+            .as_array()
+            .ok_or("TV shows not found in response")?;
 
         // Find the TV show with the given name
         let tv_show = tv_shows
-    	    .iter()
-    	    .find(|show| show["title"].as_str() == Some(tv_show_name))
-    	    .ok_or_else(|| format!("TV show {} not found", tv_show_name))?;
+            .iter()
+            .find(|show| show["title"].as_str() == Some(tv_show_name))
+            .ok_or_else(|| format!("TV show {} not found", tv_show_name))?;
 
         println!("Selected TV Show: {:?}", tv_show);
 
@@ -97,14 +101,14 @@ impl RpcClient {
 
         // Fetch the list of episodes
         let episodes_request_params = json!({
-    	    "jsonrpc": "2.0",
-    	    "method": "VideoLibrary.GetEpisodes",
-    	    "params": {
-    		    "tvshowid": tv_show_id, // Use the TV show ID you obtained earlier
-    		    "properties": ["title", "season", "episode"],
-    		    "limits": { "start": 0, "end": 1000 }
-    	    },
-    	    "id": 1
+            "jsonrpc": "2.0",
+            "method": "VideoLibrary.GetEpisodes",
+            "params": {
+                "tvshowid": tv_show_id, // Use the TV show ID you obtained earlier
+                "properties": ["title", "season", "episode"],
+                "limits": { "start": 0, "end": 1000 }
+            },
+            "id": 1
         });
 
         let episodes_response_json = self.rpc_call(&episodes_request_params).await?;
@@ -113,8 +117,8 @@ impl RpcClient {
 
         // Extract the "episodes" array from the "result" field
         let episodes = episodes_response_json["result"]["episodes"]
-    	    .as_array()
-    	    .ok_or("Episodes not found in response")?;
+            .as_array()
+            .ok_or("Episodes not found in response")?;
 
         //for episode in episodes {
         //        let episode_id = episode["episodeid"].as_u64().ok_or("Episode ID not found")?;
@@ -130,25 +134,27 @@ impl RpcClient {
 
         // Extract the episode IDs from the episodes array
         let episode_ids: Vec<u64> = episodes
-    	    .iter()
-    	    .map(|episode| episode["episodeid"].as_u64().unwrap())
-    	    .collect();
+            .iter()
+            .map(|episode| episode["episodeid"].as_u64().unwrap())
+            .collect();
 
         // Randomly select an episode ID
         let mut rng = rand::thread_rng();
-        let random_episode_id = episode_ids.choose(&mut rng).ok_or("No episodes available")?;
+        let random_episode_id = episode_ids
+            .choose(&mut rng)
+            .ok_or("No episodes available")?;
 
         //println!("Randomly selected episode ID: {:?}", random_episode_id);
 
         // Prepare the request parameters
         let episode_details_request_params = json!({
-    	    "jsonrpc": "2.0",
-    	    "method": "VideoLibrary.GetEpisodeDetails",
-    	    "params": {
-    		    "episodeid": random_episode_id,
-    		    "properties": ["file"] // You can also include other properties you need
-    	    },
-    	    "id": 1
+            "jsonrpc": "2.0",
+            "method": "VideoLibrary.GetEpisodeDetails",
+            "params": {
+                "episodeid": random_episode_id,
+                "properties": ["file"] // You can also include other properties you need
+            },
+            "id": 1
         });
 
         // Make the RPC call
@@ -171,7 +177,7 @@ impl RpcClient {
     }
 
     pub async fn rpc_call(&self, request_params: &Value) -> Result<Value, Box<dyn Error>> {
-	let client = Client::new();
+        let client = Client::new();
 
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, self.auth.auth_header_value().clone());
@@ -191,7 +197,7 @@ impl RpcClient {
         let response_json: Result<Value, serde_json::Error> = serde_json::from_str(&response_str);
 
         match response_json {
-            Ok(json) => Ok(json), // Return the JSON value
+            Ok(json) => Ok(json),           // Return the JSON value
             Err(err) => Err(Box::new(err)), // Wrap the error in a Box
         }
     }
@@ -224,7 +230,10 @@ impl RpcClient {
         });
 
         let active_players_response_json = self.rpc_call(&active_players_request_params).await?;
-        let active_players = active_players_response_json["result"].as_array().unwrap_or(&vec![]).to_owned(); // Clone the array
+        let active_players = active_players_response_json["result"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .to_owned(); // Clone the array
 
         Ok(!active_players.is_empty())
     }
