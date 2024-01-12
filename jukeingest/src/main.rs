@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local, Utc};
 use colored::Colorize;
 use dirs::home_dir;
+use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::time::{Duration, SystemTime};
@@ -58,21 +59,24 @@ fn main() {
             .unwrap_or(Duration::from_secs(0));
         calcd_threshold_days = difference.as_secs() / (24 * 60 * 60); // Convert seconds to days
 
-	println!("{}", format!("[-] Last run timestamp: {}", format_system_time(last_run)).cyan());
+	println!("{} {}", format!("[-] Last run timestamp:").cyan(), format_system_time(last_run).cyan().bold());
         println!("{} {}", format!("[+] Calculated Threshold (in days):").cyan(), format!("{}", calcd_threshold_days).cyan().bold());
     } else {
         println!("{}", "[-] No last run timestamp found.".yellow());
     }
 
     // actually set the timestamp based on CLI args
+    #[allow(unused_assignments)] // stop lying plz
     let mut threshold_time: SystemTime = now;
     if *detect {
         threshold_time = now - Duration::from_secs((calcd_threshold_days * 24 * 60 * 60).into());
+        println!("{}      {}", format!("[+] Using Threshold (in days):").red(), format!("{}", calcd_threshold_days).red().bold());
     } else {
         threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
+        println!("{}      {}", format!("[+] Using Threshold (in days):").red(), format!("{}", threshold_days).red().bold());
     }
 
-    println!("{}", format_system_time(threshold_time));
+    println!("{}    {}", format!("[-] Threshold time:").red(), format!("{}", format_system_time(threshold_time)).red().bold());
 
     // build it for append-only
     let mut playlist_file = match OpenOptions::new()
@@ -140,7 +144,12 @@ fn main() {
 fn save_last_run_timestamp() -> io::Result<()> {
     // Get the user's home directory
     if let Some(mut home_dir) = home_dir() {
-        home_dir.push(".last_run");
+        home_dir.push(".jukeingest");
+
+        // Create .jukeingest directory if it doesn't exist
+        fs::create_dir_all(&home_dir)?;
+
+        home_dir.push("last_run");
 
         let timestamp = SystemTime::now();
 
@@ -162,9 +171,10 @@ fn save_last_run_timestamp() -> io::Result<()> {
 fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {
     // Get the user's home directory
     if let Some(mut home_dir) = home_dir() {
-        home_dir.push(".last_run");
+        home_dir.push(".jukeingest");
+        home_dir.push("last_run");
 
-        if let Ok(mut file) = File::open(home_dir) {
+        if let Ok(mut file) = File::open(&home_dir) {
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
 
