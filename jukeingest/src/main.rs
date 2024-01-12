@@ -9,6 +9,8 @@ use walkdir::WalkDir;
 
 use clap::Parser;
 
+const PLAYLISTS_FOLDER: &str = "playlists/";
+
 #[derive(Parser, Debug)]
 struct Cli {
     /// Enable debug output
@@ -133,6 +135,7 @@ fn main() {
                             .map_or(false, |mod_time| mod_time > threshold_time)
                 })
                 .unwrap_or(false)
+                && !entry.path().starts_with(PLAYLISTS_FOLDER)
         })
     {
         let path = entry.path();
@@ -141,6 +144,7 @@ fn main() {
                 if let Err(err) = writeln!(playlist_stdout, "{}", file_name) {
                     eprintln!("Error writing to stdout: {}", err);
                 }
+		let _ = playlist_stdout.flush();
             }
 
             if !(*dryrun) {
@@ -152,8 +156,6 @@ fn main() {
             eprintln!("Error stripping prefix for path: {:?}", path);
         }
     }
-
-    let _ = playlist_stdout.flush();
 
     println!(
         "{} {}",
