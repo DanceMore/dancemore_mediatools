@@ -1,1 +1,5 @@
 target/
+
+# project-local junk
+.last_run
+WORK/
