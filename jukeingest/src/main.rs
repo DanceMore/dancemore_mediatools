@@ -52,6 +52,7 @@ fn main() {
     let now = SystemTime::now();
 
     // last run logic
+    #[allow(unused_assignments)] // stop lying plz
     let mut calcd_threshold_days: u64 = 0;
     let last_run_timestamp = read_last_run_timestamp().unwrap_or(None);
 
@@ -67,8 +68,8 @@ fn main() {
             format_system_time(last_run).cyan().bold()
         );
         println!(
-            "{} {}",
-            format!("[+] Calculated Threshold (in days):").cyan(),
+            "{}       {}",
+            format!("[+] Days since last run:").cyan(),
             format!("{}", calcd_threshold_days).cyan().bold()
         );
     } else {
@@ -77,18 +78,22 @@ fn main() {
 
     // actually set the timestamp based on CLI args
     #[allow(unused_assignments)] // stop lying plz
-    let mut threshold_time: SystemTime = now;
+    let mut threshold_time: SystemTime = last_run_timestamp.unwrap_or(now);
     if *detect {
-        threshold_time = now - Duration::from_secs((calcd_threshold_days * 24 * 60 * 60).into());
-        println!(
-            "{}      {}",
-            format!("[+] Using Threshold (in days):").red(),
-            format!("{}", calcd_threshold_days).red().bold()
+        if last_run_timestamp.is_none() {
+            eprintln!("Error: --detect used without a valid last run timestamp.");
+            std::process::exit(1);
+        }
+        threshold_time = last_run_timestamp.unwrap();
+	println!(
+            "{}",
+            format!("[+] Using last_run timestamp directly...").yellow(),
         );
+
     } else {
         threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
-        println!(
-            "{}      {}",
+	println!(
+            "{} {}",
             format!("[+] Using Threshold (in days):").red(),
             format!("{}", threshold_days).red().bold()
         );
