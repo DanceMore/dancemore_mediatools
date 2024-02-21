@@ -85,14 +85,13 @@ fn main() {
             std::process::exit(1);
         }
         threshold_time = last_run_timestamp.unwrap();
-	println!(
+        println!(
             "{}",
             format!("[+] Using last_run timestamp directly...").yellow(),
         );
-
     } else {
         threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
-	println!(
+        println!(
             "{} {}",
             format!("[+] Using Threshold (in days):").red(),
             format!("{}", threshold_days).red().bold()
@@ -151,7 +150,7 @@ fn main() {
                 if let Err(err) = writeln!(playlist_stdout, "{}", file_name) {
                     eprintln!("Error writing to stdout: {}", err);
                 }
-		let _ = playlist_stdout.flush();
+                let _ = playlist_stdout.flush();
             }
 
             if !(*dryrun) {
