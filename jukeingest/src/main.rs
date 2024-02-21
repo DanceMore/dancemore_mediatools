@@ -140,7 +140,9 @@ fn main() {
                             .map_or(false, |mod_time| mod_time > threshold_time)
                 })
                 .unwrap_or(false)
-                && !entry.path().starts_with(PLAYLISTS_FOLDER)
+                && !entry
+                    .path()
+                    .starts_with(&(root_path.to_owned() + PLAYLISTS_FOLDER))
         })
     {
         let path = entry.path();
