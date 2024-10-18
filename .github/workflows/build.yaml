@@ -74,10 +74,19 @@ jobs:
       run: |
         rustup target add x86_64-apple-darwin
         cargo build --release --target x86_64-apple-darwin
-        cp target/x86_64-apple-darwin/release/dupehunter ./dupehunter-macos
-        cp target/x86_64-apple-darwin/release/jukeingest ./jukeingest-macos
-        cp target/x86_64-apple-darwin/release/kodi-random_ep ./koditool-random_ep-macos
-        cp target/x86_64-apple-darwin/release/kodi-tvmode ./koditool-tvmode-macos
+        cp target/x86_64-apple-darwin/release/dupehunter ./dupehunter-macos-x86_64
+        cp target/x86_64-apple-darwin/release/jukeingest ./jukeingest-macos-x86_64
+        cp target/x86_64-apple-darwin/release/kodi-random_ep ./koditool-random_ep-macos-x86_64
+        cp target/x86_64-apple-darwin/release/kodi-tvmode ./koditool-tvmode-macos-x86_64
+
+    - name: Build for macOS arm64
+      run: |
+        rustup target add aarch64-apple-darwin
+        cargo build --release --target aarch64-apple-darwin
+        cp target/arm64-apple-darwin/release/dupehunter ./dupehunter-macos-arm64
+        cp target/arm64-apple-darwin/release/jukeingest ./jukeingest-macos-arm64
+        cp target/arm64-apple-darwin/release/kodi-random_ep ./koditool-random_ep-macos-arm64
+        cp target/arm64-apple-darwin/release/kodi-tvmode ./koditool-tvmode-macos-arm64
 
     - name: Generate Changelog
       run: echo "# Release Notes" > changelog.txt  # Replace this with your actual changelog content
@@ -87,10 +96,14 @@ jobs:
       with:
         files: |
           changelog.txt
-          dupehunter-macos
-          jukeingest-macos
-          koditool-random_ep-macos
-          koditool-tvmode-macos
+          dupehunter-macos-x86_64
+          jukeingest-macos-x86_64
+          koditool-random_ep-macos-x86_64
+          koditool-tvmode-macos-x86_64
+          dupehunter-macos-arm64
+          jukeingest-macos-arm64
+          koditool-random_ep-macos-arm64
+          koditool-tvmode-macos-arm64
         body_path: changelog.txt
         tag_name: ${{ env.tag }}
         token: ${{ secrets.GITHUB_TOKEN }}
