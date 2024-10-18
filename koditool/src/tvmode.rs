@@ -53,14 +53,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    let selected_show_name = select_random_show_name(user_shows).expect("No show available");
-
-    println!("[-] selected show => {:?}", selected_show_name);
-
     let mut i = 0;
 
     loop {
         if !rpc_client.is_active().await? {
+            let selected_show_name = select_random_show_name(user_shows).expect("No show available");
+            println!("[-] selected show => {:?}", selected_show_name);
+
             println!("\n[!] no show playing, calling other Rust binary...\n");
 
             let selected_episode = rpc_client
