@@ -53,7 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    let mut i = 0;
+    let spinner_chars = "|/-\\";
+    let mut spinner_index = 0;
 
     loop {
         if !rpc_client.is_active().await? {
@@ -66,13 +67,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .select_random_episode_by_title(&selected_show_name)
                 .await?;
             rpc_client.rpc_play(&selected_episode).await?;
-        } else if i == 0 {
-            print!("."); // Print a dot
-            io::stdout().flush()?; // Make sure the dot is immediately printed
-            i = 60; // Reset the counter
-        }
 
-        i -= 1;
+            // sleep for a moment after playing a new show to let Physics resolve
+            sleep(Duration::from_secs(3)).await;
+        } else {
+            // Print the spinner character and move to the next one
+            print!("{}", spinner_chars.chars().nth(spinner_index).unwrap());
+            io::stdout().flush()?; // Make sure the spinner is immediately printed
+
+            // Move to the next spinner character, wrapping around if necessary
+            spinner_index = (spinner_index + 1) % spinner_chars.len();
+
+            // Backspace to overwrite the previous spinner character
+            print!("\x08");
+        }
 
         sleep(Duration::from_secs(1)).await;
     }
