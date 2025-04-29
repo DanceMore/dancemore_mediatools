@@ -2,6 +2,7 @@ mod kodi_helper;
 use kodi_helper::Config;
 use kodi_helper::RpcClient;
 
+use rand::prelude::IndexedRandom;
 use std::collections::HashMap;
 use std::env;
 use std::io::{self, Write};
@@ -10,8 +11,6 @@ use tokio::time::sleep;
 
 use serde::Deserialize;
 use serde_yaml;
-
-use rand::prelude::SliceRandom;
 
 #[derive(Debug, Deserialize)]
 struct ShowMappings {
@@ -26,7 +25,7 @@ fn load_show_mappings() -> Result<ShowMappings, Box<dyn std::error::Error>> {
 }
 
 fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
-    shows.choose(&mut rand::thread_rng())
+    shows.choose(&mut rand::rng())
 }
 
 #[tokio::main]

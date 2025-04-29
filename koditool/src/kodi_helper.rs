@@ -1,4 +1,6 @@
-use rand::prelude::SliceRandom;
+use rand::prelude::IndexedMutRandom;
+use rand::SeedableRng;
+use rand_chacha::ChaCha12Rng;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
@@ -141,15 +143,15 @@ impl RpcClient {
         //}
 
         // Extract the episode IDs from the episodes array
-        let episode_ids: Vec<u64> = episodes
+        let mut episode_ids: Vec<u64> = episodes
             .iter()
             .map(|episode| episode["episodeid"].as_u64().unwrap())
             .collect();
 
         // Randomly select an episode ID
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaCha12Rng::from_seed(Default::default());
         let random_episode_id = episode_ids
-            .choose(&mut rng)
+            .choose_mut(&mut rng)
             .ok_or("No episodes available")?;
 
         //println!("Randomly selected episode ID: {:?}", random_episode_id);
