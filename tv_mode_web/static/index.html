@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Show Picker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #121212;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        .user-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .user-btn {
+            background-color: #4CAF50;
+            color: white;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .user-btn:hover, .user-btn:active {
+            background-color: #388E3C;
+        }
+        .stop-btn {
+            background-color: #F44336;
+            color: white;
+            height: 80px;
+        }
+        .stop-btn:hover, .stop-btn:active {
+            background-color: #D32F2F;
+        }
+        .status {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        .success {
+            background-color: #4CAF50;
+        }
+        .error {
+            background-color: #F44336;
+        }
+        /* Make buttons extra big on small screens */
+        @media (max-width: 600px) {
+            .user-btn {
+                height: 150px;
+                font-size: 24px;
+            }
+            .stop-btn {
+                height: 100px;
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TV Show Picker</h1>
+        
+        <div id="user-buttons" class="user-buttons">
+            <!-- User buttons will be inserted here dynamically -->
+        </div>
+        
+        <div class="status" id="status">
+            Status: Checking...
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+        
+        <div class="control-buttons">
+            <button id="stop-btn" class="btn stop-btn">STOP PLAYBACK</button>
+        </div>
+    </div>
+    
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // Function to fetch users and populate buttons
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+                
+                const userButtonsContainer = document.getElementById('user-buttons');
+                userButtonsContainer.innerHTML = '';
+                
+                data.users.forEach(user => {
+                    const button = document.createElement('button');
+                    button.textContent = user;
+                    button.className = 'btn user-btn';
+                    button.addEventListener('click', () => playShowForUser(user));
+                    userButtonsContainer.appendChild(button);
+                });
+            } catch (error) {
+                showNotification(`Failed to load users: ${error.message}`, 'error');
+            }
+        }
+        
+        // Function to play a random show for a user
+        async function playShowForUser(user) {
+            showLoading(true);
+            try {
+                const response = await fetch(`/api/play/${user}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`Playing show for ${user}`, 'success');
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            } catch (error) {
+                showNotification(`Failed to play show: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+                updateStatus();
+            }
+        }
+        
+        // Function to stop playback
+        async function stopPlayback() {
+            showLoading(true);
+            try {
+                const response = await fetch('/api/stop', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification('Playback stopped', 'success');
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            } catch (error) {
+                showNotification(`Failed to stop playback: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+                updateStatus();
+            }
+        }
+        
+        // Function to update the status display
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const statusElement = document.getElementById('status');
+                if (data.status === 'active') {
+                    statusElement.textContent = 'Status: Media is currently playing';
+                    statusElement.style.backgroundColor = '#4CAF50';
+                } else if (data.status === 'inactive') {
+                    statusElement.textContent = 'Status: No media is currently playing';
+                    statusElement.style.backgroundColor = '#333';
+                } else {
+                    statusElement.textContent = `Status: ${data.message}`;
+                    statusElement.style.backgroundColor = '#F44336';
+                }
+            } catch (error) {
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = `Status: Error - ${error.message}`;
+                statusElement.style.backgroundColor = '#F44336';
+            }
+        }
+        
+        // Function to show/hide loading indicator
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        // Function to show notifications
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.opacity = 1;
+            
+            setTimeout(() => {
+                notification.style.opacity = 0;
+            }, 3000);
+        }
+        
+        // Setup event listeners
+        document.getElementById('stop-btn').addEventListener('click', stopPlayback);
+        
+        // Load initial data
+        loadUsers();
+        updateStatus();
+        
+        // Update status periodically
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>
