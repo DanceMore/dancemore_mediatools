@@ -52,8 +52,8 @@ impl Authorization {
 // individual found Episode Struct
 #[derive(Clone, Debug)]
 pub struct SelectedEpisode {
-    episode_id: u64,
-    episode_file_path: String,
+    pub episode_id: u64,
+    pub episode_file_path: String,
 }
 
 // Implement Display for default {} formatting

@@ -29,3 +29,8 @@ path = "src/tvmode.rs"
 [lib]
 name = "koditool"
 path = "src/kodi_helper.rs"
+
+
+[dev-dependencies]
+mockito = "0.31"
+tokio-test = "0.4"
