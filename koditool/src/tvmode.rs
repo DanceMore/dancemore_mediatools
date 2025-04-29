@@ -25,9 +25,8 @@ fn load_show_mappings() -> Result<ShowMappings, Box<dyn std::error::Error>> {
     Ok(show_mappings)
 }
 
-fn select_random_show_name(shows: &Vec<String>) -> Option<&String> {
-    let mut rng = rand::thread_rng();
-    shows.choose(&mut rng)
+fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
+    shows.choose(&mut rand::thread_rng())
 }
 
 #[tokio::main]
