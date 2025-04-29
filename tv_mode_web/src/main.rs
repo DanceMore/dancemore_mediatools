@@ -125,6 +125,7 @@ async fn get_users(data: web::Data<AppState>) -> impl Responder {
 #[post("/api/tv-mode/{user}")]
 async fn start_tv_mode(data: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
     let user = path.into_inner();
+    info!("!!!!! inside start_tv_mode for {}", user);
 
     // Validate the user exists
     if !data.show_mappings.shows.contains_key(&user) {
