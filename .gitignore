@@ -3,3 +3,7 @@ target/
 # project-local junk
 .last_run
 WORK/
+
+# personal configs
+show_mappings.yml
+config.yml
