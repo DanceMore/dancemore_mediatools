@@ -266,3 +266,9 @@ impl RpcClient {
         Ok(!active_players.is_empty())
     }
 }
+
+impl std::fmt::Debug for RpcClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RpcClient {}", self.config.url)
+    }
+}
