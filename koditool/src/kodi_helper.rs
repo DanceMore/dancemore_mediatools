@@ -191,25 +191,35 @@ impl RpcClient {
 
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, self.auth.auth_header_value().clone());
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
 
         let url = format!("{}/jsonrpc", self.config.url);
+
+        // Serialize the request params to a JSON string
+        let json_body = serde_json::to_string(request_params)?;
 
         let response = client
             .post(&url)
             .headers(headers)
-            .body(reqwest::Body::from(request_params.to_string())) // Use reqwest::Body
+            .body(json_body) // Use body with JSON string
             .send()
             .await?;
 
-        // Read response body as bytes and deserialize using serde_json
-        let response_bytes: Vec<u8> = response.bytes().await?.to_vec();
-        let response_str = String::from_utf8_lossy(&response_bytes);
-        let response_json: Result<Value, serde_json::Error> = serde_json::from_str(&response_str);
-
-        match response_json {
-            Ok(json) => Ok(json),           // Return the JSON value
-            Err(err) => Err(Box::new(err)), // Wrap the error in a Box
+        // Check HTTP status code - return an error for non-2xx responses
+        if !response.status().is_success() {
+            let status = response.status();
+            return Err(format!("HTTP error: {}", status).into());
         }
+
+        // Read response body as bytes and deserialize using serde_json
+        let response_bytes = response.bytes().await?;
+        let response_str = String::from_utf8_lossy(&response_bytes);
+        let response_json: Value = serde_json::from_str(&response_str)?;
+
+        Ok(response_json)
     }
 
     // Method to make an RPC call for playing an episode
