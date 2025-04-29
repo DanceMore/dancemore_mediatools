@@ -48,9 +48,17 @@ impl Authorization {
 }
 
 // individual found Episode Struct
+#[derive(Clone, Debug)]
 pub struct SelectedEpisode {
     episode_id: u64,
     episode_file_path: String,
+}
+
+// Implement Display for default {} formatting
+impl std::fmt::Display for SelectedEpisode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.episode_file_path)
+    }
 }
 
 // Define a struct to be the basis of our RPC Client re-use
@@ -219,6 +227,24 @@ impl RpcClient {
         let _play_response = self.rpc_call(&play_episode_request_params).await?;
         println!("Play response: {:?}", _play_response);
 
+        Ok(())
+    }
+
+    // method to stop playback
+    pub async fn rpc_stop(&self) -> Result<(), Box<dyn std::error::Error>> {
+        // Create a JSON-RPC request to stop playback
+        let params = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "Player.Stop",
+            "params": {
+                "playerid": 1
+            },
+            "id": 1
+        });
+
+        // Send the request
+        let _response = self.rpc_call(&params).await?;
+        
         Ok(())
     }
 
