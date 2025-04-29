@@ -256,7 +256,7 @@ impl RpcClient {
 
         // Send the request
         let _response = self.rpc_call(&params).await?;
-        
+
         Ok(())
     }
 
