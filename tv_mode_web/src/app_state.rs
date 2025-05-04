@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
-use std::collections::HashMap;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 //use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone)]
@@ -22,13 +22,13 @@ impl ShowMappings {
     // Add a method to get alphabetically sorted shows
     pub fn sorted_shows(&self) -> BTreeMap<String, Vec<String>> {
         let mut sorted_map = BTreeMap::new();
-        
+
         for (key, mut values) in self.shows.clone() {
             // Sort the values (show names) alphabetically
             values.sort();
             sorted_map.insert(key, values);
         }
-        
+
         sorted_map
     }
 }
@@ -99,12 +99,12 @@ fn load_show_mappings() -> Result<ShowMappings, String> {
         .and_then(|content| {
             let mut mappings: ShowMappings = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse show_mappings.yml: {}", e))?;
-            
+
             // Sort each vector of show names for consistency
             for values in mappings.shows.values_mut() {
                 values.sort();
             }
-            
+
             Ok(mappings)
         })
 }
