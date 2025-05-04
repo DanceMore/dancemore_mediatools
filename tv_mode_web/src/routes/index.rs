@@ -5,7 +5,7 @@ use rocket_dyn_templates::Template;
 use crate::app_state::AppState;
 
 #[get("/")]
-pub async fn index(app_state: &State<AppState>) -> Template {
+pub async fn index(_app_state: &State<AppState>) -> Template {
     let context = "";
     Template::render("index", &context)
 }

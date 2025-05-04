@@ -29,7 +29,7 @@ fn rocket() -> _ {
             "Initialize Scheduler",
             |rocket| {
                 Box::pin(async move {
-                    let state = rocket.state::<AppState>().unwrap();
+                    //let state = rocket.state::<AppState>().unwrap();
                     start_scheduler(app_state).await;
                 })
             },

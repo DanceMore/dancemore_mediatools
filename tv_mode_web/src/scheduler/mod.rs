@@ -1,6 +1,5 @@
 use rocket::tokio;
 use rocket::tokio::time::Duration;
-use std::io::Write;
 
 use rand::prelude::IndexedRandom;
 
