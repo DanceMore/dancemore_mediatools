@@ -25,7 +25,7 @@ pub async fn get_users(app_state: &State<AppState>) -> Json<UsersList> {
         .show_mappings
         .read()
         .await
-        .shows
+        .sorted_shows()
         .keys()
         .cloned()
         .collect();

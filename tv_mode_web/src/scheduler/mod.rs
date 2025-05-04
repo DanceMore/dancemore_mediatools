@@ -34,7 +34,7 @@ async fn scheduler_mainbody(app_state: AppState) {
             };
             info!("[!] would play {}", result);
 
-            let shows = app_state.show_mappings.read().await.shows.clone();
+            let shows = app_state.show_mappings.read().await.sorted_shows().clone();
             // Get the user's shows
             let user_shows = match shows.get(&result) {
                 Some(shows) => shows,
