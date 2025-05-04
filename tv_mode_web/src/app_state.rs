@@ -6,8 +6,8 @@ use rocket::tokio::sync::RwLock;
 use std::sync::Arc;
 //use std::sync::RwLock;
 
-use rocket::serde::Serialize;
 use rocket::serde::Deserialize;
+use rocket::serde::Serialize;
 use std::collections::HashMap;
 //use serde::{Deserialize, Serialize};
 
@@ -35,12 +35,12 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     let config = match Config::load("config.yml") {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Failed to load config: {}", e); 
+            eprintln!("Failed to load config: {}", e);
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 e.to_string(),
-            )); 
-        }   
+            ));
+        }
     };
 
     // Create RPC client
@@ -68,7 +68,10 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     let app_state = AppState {
         rpc_client: Arc::new(RwLock::new(rpc_client)),
         show_mappings: Arc::new(RwLock::new(show_mappings)),
-        tv_mode: Arc::new(RwLock::new(TVModeStatus { active: false, user: None,})),
+        tv_mode: Arc::new(RwLock::new(TVModeStatus {
+            active: false,
+            user: None,
+        })),
     };
 
     Ok(app_state)

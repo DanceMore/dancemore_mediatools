@@ -1,5 +1,5 @@
-mod index;
 mod api;
+mod index;
 
 pub fn all_routes() -> Vec<rocket::Route> {
     // Combine routes from all modules

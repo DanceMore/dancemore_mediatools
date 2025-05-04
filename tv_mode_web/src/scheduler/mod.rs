@@ -15,8 +15,7 @@ async fn scheduler_mainbody(app_state: AppState) {
     loop {
         debug!("[-] scheduler firing");
 
-        let tv_mode_status = app_state.tv_mode.read().await
-        .clone();
+        let tv_mode_status = app_state.tv_mode.read().await.clone();
 
         let active_result = {
             let client = app_state.rpc_client.read().await;
@@ -40,7 +39,7 @@ async fn scheduler_mainbody(app_state: AppState) {
             // Get the user's shows
             let user_shows = match shows.get(&result) {
                 Some(shows) => shows,
-                None => { std::process::exit(1) }
+                None => std::process::exit(1),
             };
 
             let selected_show_name =
@@ -51,7 +50,8 @@ async fn scheduler_mainbody(app_state: AppState) {
 
             let selected_episode = rpc_client
                 .select_random_episode_by_title(&selected_show_name)
-                .await.unwrap();
+                .await
+                .unwrap();
             let _result = rpc_client.rpc_play(&selected_episode).await;
         }
 
