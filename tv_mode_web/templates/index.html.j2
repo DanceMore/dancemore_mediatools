@@ -62,6 +62,23 @@
         .stop-btn:hover, .stop-btn:active {
             background-color: #D32F2F;
         }
+        #status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        #status, #tv-mode-status {
+            padding: 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        #tv-mode-status {
+            background-color: #757575;
+        }
         .status {
             background-color: #333;
             padding: 15px;
@@ -127,8 +144,9 @@
             <!-- User buttons will be inserted here dynamically -->
         </div>
         
-        <div class="status" id="status">
-            Status: Checking...
+        <div id="status-container">
+            <div id="status">Status: Loading...</div>
+            <div id="tv-mode-status">TV Mode: Loading...</div>
         </div>
         
         <div class="loading" id="loading">
@@ -216,6 +234,8 @@
                 const data = await response.json();
                 
                 const statusElement = document.getElementById('status');
+                
+                // Update main status message
                 if (data.status === 'active') {
                     statusElement.textContent = 'Status: Media is currently playing';
                     statusElement.style.backgroundColor = '#4CAF50';
@@ -226,10 +246,38 @@
                     statusElement.textContent = `Status: ${data.message}`;
                     statusElement.style.backgroundColor = '#F44336';
                 }
+                
+                // Add TV mode status information
+                const tvModeElement = document.getElementById('tv-mode-status');
+                if (data.tv_mode) {
+                    const tvActiveStatus = data.tv_mode.active ? 'Active' : 'Inactive';
+                    let tvModeText = `TV Mode: ${tvActiveStatus}`;
+                    
+                    // Add user information if available
+                    if (data.tv_mode.active && data.tv_mode.user) {
+                        tvModeText += ` (User: ${data.tv_mode.user})`;
+                    }
+                    
+                    tvModeElement.textContent = tvModeText;
+                    tvModeElement.style.display = 'block';
+                    
+                    // Set visual indicator for TV mode status
+                    if (data.tv_mode.active) {
+                        tvModeElement.style.backgroundColor = '#2196F3'; // Blue for active TV mode
+                    } else {
+                        tvModeElement.style.backgroundColor = '#757575'; // Gray for inactive TV mode
+                    }
+                } else {
+                    tvModeElement.style.display = 'none';
+                }
             } catch (error) {
                 const statusElement = document.getElementById('status');
                 statusElement.textContent = `Status: Error - ${error.message}`;
                 statusElement.style.backgroundColor = '#F44336';
+                
+                // Hide TV mode element on error
+                const tvModeElement = document.getElementById('tv-mode-status');
+                tvModeElement.style.display = 'none';
             }
         }
         

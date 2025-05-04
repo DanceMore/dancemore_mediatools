@@ -1,5 +1,7 @@
 use rand::prelude::IndexedMutRandom;
+use rand::rng;
 use rand::SeedableRng;
+use rand::TryRngCore;
 use rand_chacha::ChaCha12Rng;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -149,7 +151,11 @@ impl RpcClient {
             .collect();
 
         // Randomly select an episode ID
-        let mut rng = ChaCha12Rng::from_seed(Default::default());
+
+        let mut seed_array = [0u8; 32];
+        let _ = rng().try_fill_bytes(&mut seed_array);
+
+        let mut rng = ChaCha12Rng::from_seed(seed_array);
         let random_episode_id = episode_ids
             .choose_mut(&mut rng)
             .ok_or("No episodes available")?;
