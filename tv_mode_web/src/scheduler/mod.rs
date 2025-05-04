@@ -2,6 +2,8 @@ use rocket::tokio;
 use rocket::tokio::time::Duration;
 use std::io::Write;
 
+use rand::prelude::IndexedRandom;
+
 use crate::app_state::AppState;
 
 pub async fn start_scheduler(app_state: AppState) {
@@ -32,23 +34,25 @@ async fn scheduler_mainbody(app_state: AppState) {
                     std::process::exit(1)
                 }
             };
-
             info!("[!] would play {}", result);
 
+            let shows = app_state.show_mappings.read().await.shows.clone();
+            // Get the user's shows
+            let user_shows = match shows.get(&result) {
+                Some(shows) => shows,
+                None => { std::process::exit(1) }
+            };
 
-            //user_shows = match app_state.show_mappings.shows.get(&user) {
+            let selected_show_name =
+                select_random_show_name(user_shows).expect("No show available");
+            println!("[-] selected show => {:?}", selected_show_name);
 
-            //fn select_random_show_name(shows: &Vec<String>) -> Option<&String> {
-            //    let mut rng = rand::thread_rng();
-            //    shows.choose(&mut rng)
-            //}
-            
-            
-            
-            
-            //    let selected_show_name = match select_random_show_name(user_shows) {
+            let rpc_client = app_state.rpc_client.read().await;
 
-
+            let selected_episode = rpc_client
+                .select_random_episode_by_title(&selected_show_name)
+                .await.unwrap();
+            let _result = rpc_client.rpc_play(&selected_episode).await;
         }
 
         // drop locks until the next loop...
@@ -59,4 +63,8 @@ async fn scheduler_mainbody(app_state: AppState) {
         // Non-blocking sleep using tokio
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
+}
+
+fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
+    shows.choose(&mut rand::rng())
 }
