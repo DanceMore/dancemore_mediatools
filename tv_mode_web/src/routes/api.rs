@@ -4,12 +4,15 @@ use rocket::serde::Serialize;
 use rocket::Route;
 use rocket::State;
 
+use std::collections::BTreeMap;
+
 use crate::app_state::AppState;
+use crate::app_state::ShowMappings;
 use crate::app_state::TVModeStatus;
 
 #[derive(Debug, Serialize)]
-pub struct UsersList {
-    users: Vec<String>,
+pub struct UsersResponse {
+    show_mappings: BTreeMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -20,17 +23,12 @@ pub struct StatusResponse {
 }
 
 #[get("/api/users")]
-pub async fn get_users(app_state: &State<AppState>) -> Json<UsersList> {
-    let users: Vec<String> = app_state
-        .show_mappings
-        .read()
-        .await
-        .sorted_shows()
-        .keys()
-        .cloned()
-        .collect();
-    let response = UsersList { users };
-    Json(response)
+pub async fn get_users(app_state: &State<AppState>) -> Json<UsersResponse> {
+    let users = app_state.show_mappings.read().await.sorted_shows();
+
+    Json(UsersResponse {
+        show_mappings: users,
+    })
 }
 
 #[post("/api/play/<user>")]

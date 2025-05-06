@@ -35,7 +35,7 @@
             margin-top: 30px;
         }
         .btn {
-            padding: 20px;
+            padding: 15px;
             font-size: 18px;
             border: none;
             border-radius: 8px;
@@ -46,13 +46,26 @@
         .user-btn {
             background-color: #4CAF50;
             color: white;
-            height: 120px;
+            height: auto;
+            min-height: 120px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
         }
         .user-btn:hover, .user-btn:active {
             background-color: #388E3C;
+        }
+        .user-name {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .shows-list {
+            font-size: 12px;
+            opacity: 0.8;
+            text-align: center;
+            margin-top: 5px;
         }
         .stop-btn {
             background-color: #F44336;
@@ -126,8 +139,13 @@
         /* Make buttons extra big on small screens */
         @media (max-width: 600px) {
             .user-btn {
-                height: 150px;
+                min-height: 150px;
+            }
+            .user-name {
                 font-size: 24px;
+            }
+            .shows-list {
+                font-size: 14px;
             }
             .stop-btn {
                 height: 100px;
@@ -162,25 +180,45 @@
     <div id="notification" class="notification"></div>
 
     <script>
-        // Function to fetch users and populate buttons
-        async function loadUsers() {
+        // Store show mappings
+        let showMappings = {};
+        
+        // Function to fetch show mappings
+        async function loadShowMappings() {
             try {
                 const response = await fetch('/api/users');
                 const data = await response.json();
-                
-                const userButtonsContainer = document.getElementById('user-buttons');
-                userButtonsContainer.innerHTML = '';
-                
-                data.users.forEach(user => {
-                    const button = document.createElement('button');
-                    button.textContent = user;
-                    button.className = 'btn user-btn';
-                    button.addEventListener('click', () => playShowForUser(user));
-                    userButtonsContainer.appendChild(button);
-                });
+                showMappings = data.show_mappings;
+                createUserButtons();
             } catch (error) {
-                showNotification(`Failed to load users: ${error.message}`, 'error');
+                showNotification(`Failed to load show mappings: ${error.message}`, 'error');
             }
+        }
+        
+        // Function to create user buttons from show mappings
+        function createUserButtons() {
+            const userButtonsContainer = document.getElementById('user-buttons');
+            userButtonsContainer.innerHTML = '';
+            
+            Object.keys(showMappings).forEach(user => {
+                const button = document.createElement('button');
+                button.className = 'btn user-btn';
+                button.addEventListener('click', () => playShowForUser(user));
+                
+                // Create user name element
+                const userName = document.createElement('div');
+                userName.className = 'user-name';
+                userName.textContent = user.charAt(0).toUpperCase() + user.slice(1); // Capitalize first letter
+                
+                // Create shows list element
+                const showsList = document.createElement('div');
+                showsList.className = 'shows-list';
+                showsList.textContent = showMappings[user].join(', ');
+                
+                button.appendChild(userName);
+                button.appendChild(showsList);
+                userButtonsContainer.appendChild(button);
+            });
         }
         
         // Function to play a random show for a user
@@ -302,7 +340,7 @@
         document.getElementById('stop-btn').addEventListener('click', stopPlayback);
         
         // Load initial data
-        loadUsers();
+        loadShowMappings();
         updateStatus();
         
         // Update status periodically

@@ -13,7 +13,7 @@ use rocket::serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShowMappings {
     #[serde(flatten)]
     shows: HashMap<String, Vec<String>>,
