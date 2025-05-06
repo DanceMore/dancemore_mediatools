@@ -13,6 +13,7 @@ WORKDIR /app
 
 # Copy the binary from the builder stage to the final image
 COPY --from=builder /app/target/release/tv_mode_web /app/tv_mode_web
+COPY --from=builder /app/tv_mode_web/templates /app/templates
 
 ENV ROCKET_ADDRESS="0.0.0.0"
 ENV ROCKET_PROFILE="production"
