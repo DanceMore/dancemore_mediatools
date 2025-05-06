@@ -11,6 +11,7 @@ use serde_json::json;
 use serde_json::Value;
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -20,10 +21,11 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load(filename: &str) -> Result<Self, Box<dyn Error>> {
-        let config_content = fs::read_to_string(filename)?;
-        let config: Config = serde_yaml::from_str(&config_content)?;
-        Ok(config)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        let config_str = std::fs::read_to_string(path)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+
+        serde_yaml::from_str(&config_str).map_err(|e| format!("Failed to parse config file: {}", e))
     }
 }
 

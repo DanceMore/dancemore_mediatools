@@ -4,13 +4,14 @@ use koditool::RpcClient;
 
 use rocket::tokio::sync::RwLock;
 use std::sync::Arc;
-//use std::sync::RwLock;
+
+use std::env;
+use std::path::Path;
 
 use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-//use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ShowMappings {
@@ -47,11 +48,18 @@ pub struct AppState {
 }
 
 pub fn initialize() -> Result<AppState, std::io::Error> {
+    // Get the config directory from environment variable, or use current directory as fallback
+    let config_dir = env::var("CONFIG_DIR").unwrap_or_else(|_| ".".to_string());
+
+    // Build the full paths for config files
+    let config_path = Path::new(&config_dir).join("config.yml");
+    let mappings_path = Path::new(&config_dir).join("show_mappings.yml");
+
     // Load config
-    let config = match Config::load("config.yml") {
+    let config = match Config::load(config_path.to_str().unwrap()) {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("Failed to load config: {}", e);
+            eprintln!("Failed to load config from {:?}: {}", config_path, e);
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 e.to_string(),
@@ -72,10 +80,13 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     };
 
     // Load show mappings
-    let show_mappings = match load_show_mappings() {
+    let show_mappings = match load_show_mappings(&mappings_path) {
         Ok(mappings) => mappings,
         Err(e) => {
-            eprintln!("Failed to load show mappings: {}", e);
+            eprintln!(
+                "Failed to load show mappings from {:?}: {}",
+                mappings_path, e
+            );
             return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
         }
     };
@@ -93,12 +104,12 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     Ok(app_state)
 }
 
-fn load_show_mappings() -> Result<ShowMappings, String> {
-    std::fs::read_to_string("show_mappings.yml")
-        .map_err(|e| format!("Failed to read show_mappings.yml: {}", e))
+fn load_show_mappings(path: &Path) -> Result<ShowMappings, String> {
+    std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))
         .and_then(|content| {
             let mut mappings: ShowMappings = serde_yaml::from_str(&content)
-                .map_err(|e| format!("Failed to parse show_mappings.yml: {}", e))?;
+                .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))?;
 
             // Sort each vector of show names for consistency
             for values in mappings.shows.values_mut() {
