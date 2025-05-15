@@ -1,3 +1,5 @@
+use rocket::http::Status;
+use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
@@ -9,6 +11,8 @@ use std::collections::BTreeMap;
 use crate::app_state::AppState;
 use crate::app_state::ShowMappings;
 use crate::app_state::TVModeStatus;
+
+type ApiResponse<T> = Result<Json<T>, Custom<Json<StatusResponse>>>;
 
 #[derive(Debug, Serialize)]
 pub struct UsersResponse {
@@ -64,31 +68,43 @@ pub async fn stop_tv_mode(app_state: &State<AppState>) -> Json<StatusResponse> {
 }
 
 #[get("/api/status")]
-pub async fn get_status(app_state: &State<AppState>) -> Json<StatusResponse> {
+pub async fn get_status(app_state: &State<AppState>) -> ApiResponse<StatusResponse> {
     // Get TV mode status - unlock immediately to avoid holding mutex across await
     let tv_mode_status = app_state.tv_mode.read().await.clone();
 
-    let active_result = {
-        // This scope ensures the lock is dropped after we call is_active()
-        let client = app_state.rpc_client.read().await;
+    // This scope ensures the lock is dropped after we call is_active()
+    let client = app_state.rpc_client.read().await;
 
-        // Call is_active() and get the future
-        client.is_active().await.expect("")
-        // Lock is automatically released here when client goes out of scope
+    // Call is_active() and handle potential errors
+    let active_result = match client.is_active().await {
+        Ok(result) => result,
+        Err(err) => {
+            error!("Failed to connect to RPC server: {}", err);
+            return Err(Custom(
+                Status::Ok, // Still return HTTP 200 to the client
+                Json(StatusResponse {
+                    status: "error".to_string(),
+                    message: "Unable to connect to media server".to_string(),
+                    tv_mode: Some(tv_mode_status),
+                }),
+            ));
+        }
     };
 
+    // Lock is automatically released here when client goes out of scope
+
     if active_result {
-        Json(StatusResponse {
+        Ok(Json(StatusResponse {
             status: "active".to_string(),
             message: "Media is currently playing".to_string(),
             tv_mode: Some(tv_mode_status),
-        })
+        }))
     } else {
-        Json(StatusResponse {
+        Ok(Json(StatusResponse {
             status: "inactive".to_string(),
             message: "No media is currently playing".to_string(),
             tv_mode: Some(tv_mode_status),
-        })
+        }))
     }
 }
 
