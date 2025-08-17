@@ -1,107 +1,191 @@
-use rocket::tokio;
-use rocket::tokio::time::Duration;
-
 use rand::prelude::*;
+use rocket::tokio;
+use rocket::tokio::time::{Duration, Instant};
+use std::time::SystemTime;
 
 use crate::app_state::AppState;
 
+// Configuration constants
+const SCHEDULER_INTERVAL: Duration = Duration::from_secs(5); // Increased from 1s to 5s
+const MAX_CONSECUTIVE_ERRORS: u32 = 5;
+const ERROR_BACKOFF_BASE: u64 = 30; // Base backoff in seconds
+const MAX_BACKOFF: u64 = 300; // Max backoff of 5 minutes
+
+#[derive(Debug)]
+struct SchedulerState {
+    consecutive_errors: u32,
+    last_error_time: Option<SystemTime>,
+    last_success_time: Option<SystemTime>,
+}
+
+impl SchedulerState {
+    fn new() -> Self {
+        Self {
+            consecutive_errors: 0,
+            last_error_time: None,
+            last_success_time: None,
+        }
+    }
+
+    fn record_success(&mut self) {
+        self.consecutive_errors = 0;
+        self.last_success_time = Some(SystemTime::now());
+        self.last_error_time = None;
+    }
+
+    fn record_error(&mut self) {
+        self.consecutive_errors += 1;
+        self.last_error_time = Some(SystemTime::now());
+    }
+
+    fn should_backoff(&self) -> Option<Duration> {
+        if self.consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+            let backoff_seconds = std::cmp::min(
+                ERROR_BACKOFF_BASE
+                    * (2_u64.pow(
+                        self.consecutive_errors
+                            .saturating_sub(MAX_CONSECUTIVE_ERRORS),
+                    )),
+                MAX_BACKOFF,
+            );
+            Some(Duration::from_secs(backoff_seconds))
+        } else {
+            None
+        }
+    }
+}
+
 pub async fn start_scheduler(app_state: AppState) {
-    info!("[+] Starting scheduler...");
+    info!(
+        "Starting scheduler with {}s interval",
+        SCHEDULER_INTERVAL.as_secs()
+    );
     tokio::spawn(scheduler_mainbody(app_state));
 }
 
 async fn scheduler_mainbody(app_state: AppState) {
+    let mut scheduler_state = SchedulerState::new();
+    let mut iteration_count = 0u64;
+
     loop {
-        debug!("[-] scheduler firing");
+        let start_time = Instant::now();
+        iteration_count += 1;
 
-        // Get TV mode status
-        let tv_mode_status = app_state.tv_mode.read().await.clone();
+        // Log iteration count periodically instead of every time
+        if iteration_count % 12 == 0 {
+            // Every minute with 5s intervals
+            debug!("Scheduler iteration #{}", iteration_count);
+        }
 
-        // Check if media is active, with error handling
-        let active_result = {
-            let client = app_state.rpc_client.read().await;
-            match client.is_active().await {
-                Ok(result) => result,
-                Err(err) => {
-                    error!("[-] scheduler failed to connect to RPC server: {}", err);
-                    continue; // Skip this iteration and try again
+        // Check if we should back off due to consecutive errors
+        if let Some(backoff_duration) = scheduler_state.should_backoff() {
+            warn!(
+                "Backing off for {}s due to {} consecutive errors",
+                backoff_duration.as_secs(),
+                scheduler_state.consecutive_errors
+            );
+            tokio::time::sleep(backoff_duration).await;
+            continue;
+        }
+
+        match process_scheduler_iteration(&app_state).await {
+            Ok(action_taken) => {
+                scheduler_state.record_success();
+                if action_taken {
+                    info!("Successfully processed TV mode request");
                 }
             }
-        };
+            Err(e) => {
+                scheduler_state.record_error();
 
-        debug!("[-] scheduler sees {} playing", active_result);
-
-        if tv_mode_status.active && !active_result {
-            info!("[!] tv-mode is enabled but nothing is playing, we should DO WORK !!!");
-
-            // Get the user (with error handling)
-            let user = match tv_mode_status.user {
-                Some(user) => user,
-                None => {
-                    warn!("[!] tv-mode is enabled with None $user. this should never happen. disabling tv-mode.");
-                    // Instead of exiting, disable TV mode and continue
-                    let mut tv_mode = app_state.tv_mode.write().await;
-                    tv_mode.active = false;
-                    tv_mode.user = None;
-                    continue;
-                }
-            };
-
-            info!("[!] would play for user: {}", user);
-
-            let shows = app_state.show_mappings.read().await.sorted_shows().clone();
-
-            // Get the user's shows (with error handling)
-            let user_shows = match shows.get(&user) {
-                Some(shows) => shows,
-                None => {
-                    error!("[!] User '{}' not found in show mappings", user);
-                    // Disable TV mode for this non-existent user
-                    let mut tv_mode = app_state.tv_mode.write().await;
-                    tv_mode.active = false;
-                    tv_mode.user = None;
-                    continue;
-                }
-            };
-
-            // Select a random show (with error handling)
-            let selected_show_name = match select_random_show_name(user_shows) {
-                Some(show) => show,
-                None => {
-                    error!("[!] No shows available for user '{}'", user);
-                    continue;
-                }
-            };
-
-            info!("[-] selected show => {:?}", selected_show_name);
-
-            let rpc_client = app_state.rpc_client.read().await;
-
-            // Try to select a random episode (with error handling)
-            let selected_episode = match rpc_client
-                .select_random_episode_by_title(selected_show_name)
-                .await
-            {
-                Ok(episode) => episode,
-                Err(err) => {
+                // Only log errors occasionally to prevent spam
+                if scheduler_state.consecutive_errors <= 3
+                    || scheduler_state.consecutive_errors % 10 == 0
+                {
                     error!(
-                        "[!] Failed to select episode for show '{}': {}",
-                        selected_show_name, err
+                        "Scheduler error #{}: {} (will retry in {}s)",
+                        scheduler_state.consecutive_errors,
+                        e,
+                        SCHEDULER_INTERVAL.as_secs()
                     );
-                    continue;
                 }
-            };
-
-            // Try to play the episode (with error handling)
-            match rpc_client.rpc_play(&selected_episode).await {
-                Ok(result) => info!("[+] Successfully started playing: {:?}", result),
-                Err(err) => error!("[!] Failed to play episode: {}", err),
             }
         }
 
-        // Non-blocking sleep using tokio
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        // Calculate how long to sleep to maintain consistent interval
+        let elapsed = start_time.elapsed();
+        if elapsed < SCHEDULER_INTERVAL {
+            tokio::time::sleep(SCHEDULER_INTERVAL - elapsed).await;
+        } else {
+            // If processing took longer than interval, yield briefly
+            tokio::task::yield_now().await;
+        }
     }
+}
+
+async fn process_scheduler_iteration(app_state: &AppState) -> Result<bool, String> {
+    // Get TV mode status
+    let tv_mode_status = app_state.tv_mode.read().await.clone();
+
+    if !tv_mode_status.active {
+        // TV mode is off, nothing to do (only log this occasionally)
+        return Ok(false);
+    }
+
+    // Check if media is active
+    let is_active = {
+        let client = app_state.rpc_client.read().await;
+        client
+            .is_active()
+            .await
+            .map_err(|e| format!("Failed to check media status: {}", e))?
+    };
+
+    if is_active {
+        // Something is already playing, no action needed
+        return Ok(false);
+    }
+
+    // TV mode is active but nothing is playing - time to act!
+    debug!("TV mode active but no media playing, selecting content");
+
+    let user = tv_mode_status
+        .user
+        .ok_or_else(|| "TV mode active but no user specified".to_string())?;
+
+    // Get user's shows
+    let shows = app_state.show_mappings.read().await.sorted_shows();
+    let user_shows = shows
+        .get(&user)
+        .ok_or_else(|| format!("User '{}' not found in show mappings", user))?;
+
+    if user_shows.is_empty() {
+        return Err(format!("No shows configured for user '{}'", user));
+    }
+
+    // Select random show and episode
+    let selected_show = select_random_show_name(user_shows)
+        .ok_or_else(|| "Failed to select random show".to_string())?;
+
+    debug!("Selected show '{}' for user '{}'", selected_show, user);
+
+    let rpc_client = app_state.rpc_client.read().await;
+
+    let selected_episode = rpc_client
+        .select_random_episode_by_title(selected_show)
+        .await
+        .map_err(|e| format!("Failed to select episode for '{}': {}", selected_show, e))?;
+
+    rpc_client
+        .rpc_play(&selected_episode)
+        .await
+        .map_err(|e| format!("Failed to play episode: {}", e))?;
+
+    info!(
+        "Started playing content for user '{}': {}",
+        user, selected_show
+    );
+    Ok(true)
 }
 
 fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
