@@ -12,7 +12,7 @@ use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShowMappings {
@@ -39,7 +39,11 @@ impl ShowMappings {
 pub struct SleepTimer {
     pub enabled: bool,
     pub duration_hours: u32,
-    pub start_time: Option<SystemTime>,
+    // Store as seconds since UNIX epoch for easy serialization
+    pub start_timestamp: Option<u64>,
+    // Include remaining seconds in the serialized data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining_seconds: Option<u64>,
 }
 
 impl SleepTimer {
@@ -47,19 +51,26 @@ impl SleepTimer {
         Self {
             enabled: false,
             duration_hours: 2, // Default 2 hours
-            start_time: None,
+            start_timestamp: None,
+            remaining_seconds: None,
         }
     }
 
     pub fn start(&mut self, duration_hours: u32) {
         self.enabled = true;
         self.duration_hours = duration_hours;
-        self.start_time = Some(SystemTime::now());
+        // Store current time as seconds since UNIX epoch
+        self.start_timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_secs());
+        self.update_remaining_time();
     }
 
     pub fn stop(&mut self) {
         self.enabled = false;
-        self.start_time = None;
+        self.start_timestamp = None;
+        self.remaining_seconds = None;
     }
 
     pub fn is_expired(&self) -> bool {
@@ -67,31 +78,52 @@ impl SleepTimer {
             return false;
         }
 
-        if let Some(start_time) = self.start_time {
-            if let Ok(elapsed) = start_time.elapsed() {
-                let target_duration = Duration::from_secs((self.duration_hours as u64) * 3600);
-                return elapsed >= target_duration;
-            }
-        }
-
-        false
+        self.update_remaining_time_const();
+        self.remaining_seconds.map_or(true, |remaining| remaining == 0)
     }
 
-    pub fn time_remaining(&self) -> Option<Duration> {
-        if !self.enabled {
-            return None;
+    pub fn update_remaining_time(&mut self) {
+        if !self.enabled || self.start_timestamp.is_none() {
+            self.remaining_seconds = None;
+            return;
         }
 
-        if let Some(start_time) = self.start_time {
-            if let Ok(elapsed) = start_time.elapsed() {
-                let target_duration = Duration::from_secs((self.duration_hours as u64) * 3600);
-                if elapsed < target_duration {
-                    return Some(target_duration - elapsed);
-                }
-            }
+        let start_timestamp = self.start_timestamp.unwrap();
+        let current_timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let elapsed_seconds = current_timestamp.saturating_sub(start_timestamp);
+        let total_seconds = (self.duration_hours as u64) * 3600;
+
+        if elapsed_seconds >= total_seconds {
+            self.remaining_seconds = Some(0);
+        } else {
+            self.remaining_seconds = Some(total_seconds - elapsed_seconds);
+        }
+    }
+
+    // Non-mutating version for checking expiration
+    fn update_remaining_time_const(&self) -> u64 {
+        if !self.enabled || self.start_timestamp.is_none() {
+            return 0;
         }
 
-        None
+        let start_timestamp = self.start_timestamp.unwrap();
+        let current_timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let elapsed_seconds = current_timestamp.saturating_sub(start_timestamp);
+        let total_seconds = (self.duration_hours as u64) * 3600;
+
+        if elapsed_seconds >= total_seconds {
+            0
+        } else {
+            total_seconds - elapsed_seconds
+        }
     }
 }
 
@@ -109,6 +141,12 @@ impl TVModeStatus {
             user: None,
             sleep_timer: SleepTimer::new(),
         }
+    }
+
+    // Helper method to update sleep timer remaining time before serialization
+    pub fn with_updated_timer(&mut self) -> &Self {
+        self.sleep_timer.update_remaining_time();
+        self
     }
 }
 

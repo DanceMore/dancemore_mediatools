@@ -133,34 +133,50 @@ pub async fn play_random_show(
         2
     };
 
-    // Validate sleep timer hours
-    if ![1, 2, 4, 8, 12].contains(&sleep_timer_hours) {
+    // Validate sleep timer hours (allow 0 for no timer)
+    if ![0, 1, 2, 4, 8, 12].contains(&sleep_timer_hours) {
         return Err(Custom(
             Status::BadRequest,
             Json(StatusResponse::error(
-                "Invalid sleep timer duration. Must be 1, 2, 4, 8, or 12 hours".to_string(),
+                "Invalid sleep timer duration. Must be 0 (no timer), 1, 2, 4, 8, or 12 hours".to_string(),
                 None,
                 None,
             )),
         ));
     }
 
-    info!("Enabling TV mode for user: {} with {}h sleep timer", user, sleep_timer_hours);
-
     let mut tv_mode = app_state.tv_mode.write().await;
     tv_mode.active = true;
     tv_mode.user = Some(user.to_string());
-    tv_mode.sleep_timer.start(sleep_timer_hours);
+    
+    if sleep_timer_hours == 0 {
+        // No sleep timer
+        tv_mode.sleep_timer.stop();
+        info!("Enabling TV mode for user: {} with no sleep timer", user);
+        
+        Ok(Json(StatusResponse::success(
+            format!(
+                "Enabled TV mode for user '{}' with {} shows available (no sleep timer)",
+                user,
+                user_shows.len()
+            ),
+            Some(tv_mode.clone()),
+        )))
+    } else {
+        // With sleep timer
+        tv_mode.sleep_timer.start(sleep_timer_hours);
+        info!("Enabling TV mode for user: {} with {}h sleep timer", user, sleep_timer_hours);
 
-    Ok(Json(StatusResponse::success(
-        format!(
-            "Enabled TV mode for user '{}' with {} shows available ({}h sleep timer)",
-            user,
-            user_shows.len(),
-            sleep_timer_hours
-        ),
-        Some(tv_mode.clone()),
-    )))
+        Ok(Json(StatusResponse::success(
+            format!(
+                "Enabled TV mode for user '{}' with {} shows available ({}h sleep timer)",
+                user,
+                user_shows.len(),
+                sleep_timer_hours
+            ),
+            Some(tv_mode.clone()),
+        )))
+    }
 }
 
 // Legacy endpoint without sleep timer data for backward compatibility
@@ -169,7 +185,49 @@ pub async fn play_random_show_legacy(
     app_state: &State<AppState>,
     user: &str,
 ) -> ApiResponse<StatusResponse> {
-    play_random_show(app_state, user, None).await
+    // Validate user exists in mappings first
+    let shows = app_state.show_mappings.read().await.sorted_shows();
+    if !shows.contains_key(user) {
+        warn!("Attempt to enable TV mode for unknown user: {}", user);
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                format!("User '{}' not found in show mappings", user),
+                None,
+                Some("Check available users via /api/users endpoint".to_string()),
+            )),
+        ));
+    }
+
+    let user_shows = shows.get(user).unwrap();
+    if user_shows.is_empty() {
+        warn!("Attempt to enable TV mode for user with no shows: {}", user);
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                format!("User '{}' has no shows configured", user),
+                None,
+                Some("Add shows to the show_mappings.yml file for this user".to_string()),
+            )),
+        ));
+    }
+
+    info!("Enabling TV mode for user: {} with no sleep timer (legacy endpoint)", user);
+
+    let mut tv_mode = app_state.tv_mode.write().await;
+    tv_mode.active = true;
+    tv_mode.user = Some(user.to_string());
+    // Don't start sleep timer for legacy endpoint
+    tv_mode.sleep_timer.stop();
+
+    Ok(Json(StatusResponse::success(
+        format!(
+            "Enabled TV mode for user '{}' with {} shows available (no sleep timer)",
+            user,
+            user_shows.len()
+        ),
+        Some(tv_mode.clone()),
+    )))
 }
 
 #[post("/api/sleep-timer", data = "<request>")]
@@ -272,7 +330,12 @@ pub async fn stop_tv_mode(app_state: &State<AppState>) -> ApiResponse<StatusResp
 
 #[get("/api/status")]
 pub async fn get_status(app_state: &State<AppState>) -> ApiResponse<StatusResponse> {
-    let tv_mode_status = app_state.tv_mode.read().await.clone();
+    // Get mutable reference to update timer, then clone for response
+    let tv_mode_status = {
+        let mut tv_mode = app_state.tv_mode.write().await;
+        tv_mode.with_updated_timer();
+        tv_mode.clone()
+    };
 
     // Use a timeout wrapper for the RPC call
     let active_result = {

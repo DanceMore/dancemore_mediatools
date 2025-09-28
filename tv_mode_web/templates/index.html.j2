@@ -143,11 +143,11 @@
         }
         .modal-content {
             background-color: #333;
-            margin: 15% auto;
+            margin: 10% auto;
             padding: 20px;
             border-radius: 8px;
             width: 90%;
-            max-width: 400px;
+            max-width: 450px;
             color: white;
         }
         .modal-title {
@@ -157,18 +157,18 @@
         }
         .sleep-timer-options {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            gap: 12px;
             margin: 20px 0;
         }
         .sleep-timer-btn {
             background-color: #2196F3;
             color: white;
             border: none;
-            padding: 15px 10px;
+            padding: 12px 8px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.3s;
         }
         .sleep-timer-btn:hover {
@@ -176,6 +176,15 @@
         }
         .sleep-timer-btn.selected {
             background-color: #4CAF50;
+        }
+        .sleep-timer-btn.no-timer {
+            background-color: #757575;
+        }
+        .sleep-timer-btn.no-timer:hover {
+            background-color: #616161;
+        }
+        .sleep-timer-btn.no-timer.selected {
+            background-color: #FF9800;
         }
         .modal-buttons {
             display: flex;
@@ -231,6 +240,15 @@
             flex-wrap: wrap;
             gap: 10px;
         }
+        .timer-display {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .timer-countdown {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            color: #4CAF50;
+        }
         .timer-buttons {
             display: flex;
             gap: 10px;
@@ -270,7 +288,7 @@
                 font-size: 24px;
             }
             .modal-content {
-                margin: 10% auto;
+                margin: 5% auto;
                 width: 95%;
             }
             .sleep-timer-info {
@@ -297,7 +315,10 @@
             <div id="tv-mode-status">TV Mode: Loading...</div>
             <div id="sleep-timer-controls" class="sleep-timer-controls">
                 <div class="sleep-timer-info">
-                    <span id="sleep-timer-text">Sleep Timer: --</span>
+                    <div class="timer-display">
+                        <div id="sleep-timer-text">Sleep Timer: --</div>
+                        <div id="sleep-timer-countdown" class="timer-countdown">--:--:--</div>
+                    </div>
                     <div class="timer-buttons">
                         <button id="change-timer-btn" class="timer-btn">Change</button>
                         <button id="disable-timer-btn" class="timer-btn danger">Disable</button>
@@ -324,6 +345,7 @@
             <span class="close" id="close-modal">&times;</span>
             <h2 class="modal-title">Set Sleep Timer</h2>
             <div class="sleep-timer-options">
+                <button class="sleep-timer-btn no-timer" data-hours="0">No Timer</button>
                 <button class="sleep-timer-btn" data-hours="1">1h</button>
                 <button class="sleep-timer-btn selected" data-hours="2">2h</button>
                 <button class="sleep-timer-btn" data-hours="4">4h</button>
@@ -342,6 +364,7 @@
         let showMappings = {};
         let currentUser = null;
         let selectedSleepHours = 2; // Default to 2 hours
+        let countdownInterval = null;
         
         // Function to fetch show mappings
         async function loadShowMappings() {
@@ -421,7 +444,8 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showNotification(`Playing show for ${user} (${sleepHours}h timer)`, 'success');
+                    const timerText = sleepHours === 0 ? 'no timer' : `${sleepHours}h timer`;
+                    showNotification(`Playing show for ${user} (${timerText})`, 'success');
                 } else {
                     showNotification(data.message, 'error');
                 }
@@ -505,6 +529,49 @@
             }
         }
         
+        // Function to format seconds as HH:MM:SS
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Function to update countdown display
+        function updateCountdown(remainingSeconds) {
+            const countdownElement = document.getElementById('sleep-timer-countdown');
+            if (remainingSeconds > 0) {
+                countdownElement.textContent = formatTime(remainingSeconds);
+                countdownElement.style.color = remainingSeconds < 300 ? '#FF9800' : '#4CAF50'; // Orange if < 5 min
+            } else {
+                countdownElement.textContent = '00:00:00';
+                countdownElement.style.color = '#F44336'; // Red when expired
+            }
+        }
+        
+        // Function to start local countdown
+        function startLocalCountdown(initialSeconds) {
+            // Clear existing countdown
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            let remainingSeconds = initialSeconds;
+            
+            countdownInterval = setInterval(() => {
+                remainingSeconds--;
+                updateCountdown(remainingSeconds);
+                
+                if (remainingSeconds <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    // Trigger a status update to reflect the change
+                    setTimeout(updateStatus, 1000);
+                }
+            }, 1000);
+        }
+        
         // Function to update the status display
         async function updateStatus() {
             try {
@@ -549,19 +616,40 @@
                         if (data.tv_mode.sleep_timer && data.tv_mode.sleep_timer.enabled) {
                             sleepTimerControls.style.display = 'block';
                             
-                            // Show sleep timer duration
+                            // Update sleep timer display
                             const sleepTimerText = document.getElementById('sleep-timer-text');
-                            sleepTimerText.textContent = `Sleep Timer: ${data.tv_mode.sleep_timer.duration_hours}h active`;
+                            sleepTimerText.textContent = `Sleep Timer: ${data.tv_mode.sleep_timer.duration_hours}h`;
+                            
+                            // Update countdown with remaining time and start local countdown
+                            if (data.tv_mode.sleep_timer.remaining_seconds !== undefined) {
+                                updateCountdown(data.tv_mode.sleep_timer.remaining_seconds);
+                                startLocalCountdown(data.tv_mode.sleep_timer.remaining_seconds);
+                            }
                         } else {
                             sleepTimerControls.style.display = 'none';
+                            // Clear any running countdown
+                            if (countdownInterval) {
+                                clearInterval(countdownInterval);
+                                countdownInterval = null;
+                            }
                         }
                     } else {
                         tvModeElement.style.backgroundColor = '#757575'; // Gray for inactive TV mode
                         sleepTimerControls.style.display = 'none';
+                        // Clear any running countdown
+                        if (countdownInterval) {
+                            clearInterval(countdownInterval);
+                            countdownInterval = null;
+                        }
                     }
                 } else {
                     tvModeElement.style.display = 'none';
                     sleepTimerControls.style.display = 'none';
+                    // Clear any running countdown
+                    if (countdownInterval) {
+                        clearInterval(countdownInterval);
+                        countdownInterval = null;
+                    }
                 }
             } catch (error) {
                 const statusElement = document.getElementById('status');
@@ -573,6 +661,12 @@
                 const sleepTimerControls = document.getElementById('sleep-timer-controls');
                 tvModeElement.style.display = 'none';
                 sleepTimerControls.style.display = 'none';
+                
+                // Clear any running countdown
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
             }
         }
         
@@ -611,7 +705,7 @@
         
         // Confirm modal button
         document.getElementById('confirm-modal').addEventListener('click', () => {
-            if (currentUser) {
+            if (currentUser !== null) {
                 playShowForUser(currentUser, selectedSleepHours);
                 hideSleepTimerModal();
             }
@@ -622,17 +716,19 @@
             // Show modal for changing timer
             showSleepTimerModal(null);
             document.getElementById('confirm-modal').textContent = 'Update Timer';
+            
+            // Override the confirm button behavior temporarily
+            const originalOnClick = document.getElementById('confirm-modal').onclick;
             document.getElementById('confirm-modal').onclick = () => {
-                updateSleepTimer(selectedSleepHours);
+                if (selectedSleepHours === 0) {
+                    disableSleepTimer();
+                } else {
+                    updateSleepTimer(selectedSleepHours);
+                }
                 hideSleepTimerModal();
-                // Reset button text and handler
+                // Restore original behavior
                 document.getElementById('confirm-modal').textContent = 'Start TV Mode';
-                document.getElementById('confirm-modal').onclick = () => {
-                    if (currentUser) {
-                        playShowForUser(currentUser, selectedSleepHours);
-                        hideSleepTimerModal();
-                    }
-                };
+                document.getElementById('confirm-modal').onclick = originalOnClick;
             };
         });
         
@@ -650,8 +746,8 @@
         loadShowMappings();
         updateStatus();
         
-        // Update status periodically
-        setInterval(updateStatus, 5000);
+        // Update status periodically (less frequently now that we have local countdown)
+        setInterval(updateStatus, 30000); // Every 30 seconds instead of 5
     </script>
 </body>
 </html>
