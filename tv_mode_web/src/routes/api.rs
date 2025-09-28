@@ -32,6 +32,16 @@ pub struct StatusResponse {
     error_details: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PlayRequest {
+    sleep_timer_hours: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SleepTimerRequest {
+    hours: u32,
+}
+
 impl StatusResponse {
     fn success(message: String, tv_mode: Option<TVModeStatus>) -> Self {
         Self {
@@ -83,10 +93,11 @@ pub async fn get_users(app_state: &State<AppState>) -> ApiResponse<UsersResponse
     }))
 }
 
-#[post("/api/play/<user>")]
+#[post("/api/play/<user>", data = "<request>")]
 pub async fn play_random_show(
     app_state: &State<AppState>,
     user: &str,
+    request: Option<Json<PlayRequest>>,
 ) -> ApiResponse<StatusResponse> {
     // Validate user exists in mappings first
     let shows = app_state.show_mappings.read().await.sorted_shows();
@@ -115,18 +126,113 @@ pub async fn play_random_show(
         ));
     }
 
-    info!("Enabling TV mode for user: {}", user);
+    // Extract sleep timer duration from request, default to 2 hours
+    let sleep_timer_hours = if let Some(req) = request {
+        req.sleep_timer_hours.unwrap_or(2)
+    } else {
+        2
+    };
+
+    // Validate sleep timer hours
+    if ![1, 2, 4, 8, 12].contains(&sleep_timer_hours) {
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                "Invalid sleep timer duration. Must be 1, 2, 4, 8, or 12 hours".to_string(),
+                None,
+                None,
+            )),
+        ));
+    }
+
+    info!("Enabling TV mode for user: {} with {}h sleep timer", user, sleep_timer_hours);
 
     let mut tv_mode = app_state.tv_mode.write().await;
     tv_mode.active = true;
     tv_mode.user = Some(user.to_string());
+    tv_mode.sleep_timer.start(sleep_timer_hours);
 
     Ok(Json(StatusResponse::success(
         format!(
-            "Enabled TV mode for user '{}' with {} shows available",
+            "Enabled TV mode for user '{}' with {} shows available ({}h sleep timer)",
             user,
-            user_shows.len()
+            user_shows.len(),
+            sleep_timer_hours
         ),
+        Some(tv_mode.clone()),
+    )))
+}
+
+// Legacy endpoint without sleep timer data for backward compatibility
+#[post("/api/play/<user>", rank = 2)]
+pub async fn play_random_show_legacy(
+    app_state: &State<AppState>,
+    user: &str,
+) -> ApiResponse<StatusResponse> {
+    play_random_show(app_state, user, None).await
+}
+
+#[post("/api/sleep-timer", data = "<request>")]
+pub async fn set_sleep_timer(
+    app_state: &State<AppState>,
+    request: Json<SleepTimerRequest>,
+) -> ApiResponse<StatusResponse> {
+    // Validate sleep timer hours
+    if ![1, 2, 4, 8, 12].contains(&request.hours) {
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                "Invalid sleep timer duration. Must be 1, 2, 4, 8, or 12 hours".to_string(),
+                None,
+                None,
+            )),
+        ));
+    }
+
+    let mut tv_mode = app_state.tv_mode.write().await;
+    
+    if !tv_mode.active {
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                "Cannot set sleep timer when TV mode is not active".to_string(),
+                Some(tv_mode.clone()),
+                None,
+            )),
+        ));
+    }
+
+    tv_mode.sleep_timer.start(request.hours);
+
+    info!("Sleep timer updated to {} hours", request.hours);
+
+    Ok(Json(StatusResponse::success(
+        format!("Sleep timer set to {} hours", request.hours),
+        Some(tv_mode.clone()),
+    )))
+}
+
+#[delete("/api/sleep-timer")]
+pub async fn disable_sleep_timer(app_state: &State<AppState>) -> ApiResponse<StatusResponse> {
+    let mut tv_mode = app_state.tv_mode.write().await;
+    
+    if !tv_mode.active {
+        return Err(Custom(
+            Status::BadRequest,
+            Json(StatusResponse::error(
+                "Cannot disable sleep timer when TV mode is not active".to_string(),
+                Some(tv_mode.clone()),
+                None,
+            )),
+        ));
+    }
+
+    tv_mode.sleep_timer.stop();
+
+    info!("Sleep timer disabled");
+
+    Ok(Json(StatusResponse::success(
+        "Sleep timer disabled".to_string(),
         Some(tv_mode.clone()),
     )))
 }
@@ -140,6 +246,7 @@ pub async fn stop_tv_mode(app_state: &State<AppState>) -> ApiResponse<StatusResp
 
     tv_mode.active = false;
     tv_mode.user = None;
+    tv_mode.sleep_timer.stop();
 
     let message = if was_active {
         match previous_user {
@@ -213,6 +320,9 @@ pub fn routes() -> Vec<Route> {
         get_users,
         get_status,
         play_random_show,
+        play_random_show_legacy,
+        set_sleep_timer,
+        disable_sleep_timer,
         stop_tv_mode,
         health_check
     ]

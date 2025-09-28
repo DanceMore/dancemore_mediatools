@@ -132,6 +132,23 @@ async fn process_scheduler_iteration(app_state: &AppState) -> Result<bool, Strin
         return Ok(false);
     }
 
+    // Check if sleep timer has expired
+    if tv_mode_status.sleep_timer.is_expired() {
+        info!("Sleep timer expired, disabling TV mode");
+        
+        let mut tv_mode_write = app_state.tv_mode.write().await;
+        tv_mode_write.active = false;
+        tv_mode_write.user = None;
+        tv_mode_write.sleep_timer.stop();
+        drop(tv_mode_write); // Release the write lock early
+        
+        // Note: We just disable TV mode here. The media server will handle 
+        // stopping playback naturally, or you can add a stop call here if 
+        // your RpcClient has a stop method available.
+        
+        return Ok(true);
+    }
+
     // Check if media is active
     let is_active = {
         let client = app_state.rpc_client.read().await;

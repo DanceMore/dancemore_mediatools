@@ -12,6 +12,7 @@ use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::time::{Duration, SystemTime};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ShowMappings {
@@ -35,9 +36,80 @@ impl ShowMappings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SleepTimer {
+    pub enabled: bool,
+    pub duration_hours: u32,
+    pub start_time: Option<SystemTime>,
+}
+
+impl SleepTimer {
+    pub fn new() -> Self {
+        Self {
+            enabled: false,
+            duration_hours: 2, // Default 2 hours
+            start_time: None,
+        }
+    }
+
+    pub fn start(&mut self, duration_hours: u32) {
+        self.enabled = true;
+        self.duration_hours = duration_hours;
+        self.start_time = Some(SystemTime::now());
+    }
+
+    pub fn stop(&mut self) {
+        self.enabled = false;
+        self.start_time = None;
+    }
+
+    pub fn is_expired(&self) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        if let Some(start_time) = self.start_time {
+            if let Ok(elapsed) = start_time.elapsed() {
+                let target_duration = Duration::from_secs((self.duration_hours as u64) * 3600);
+                return elapsed >= target_duration;
+            }
+        }
+
+        false
+    }
+
+    pub fn time_remaining(&self) -> Option<Duration> {
+        if !self.enabled {
+            return None;
+        }
+
+        if let Some(start_time) = self.start_time {
+            if let Ok(elapsed) = start_time.elapsed() {
+                let target_duration = Duration::from_secs((self.duration_hours as u64) * 3600);
+                if elapsed < target_duration {
+                    return Some(target_duration - elapsed);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TVModeStatus {
     pub active: bool,
     pub user: Option<String>,
+    pub sleep_timer: SleepTimer,
+}
+
+impl TVModeStatus {
+    pub fn new() -> Self {
+        Self {
+            active: false,
+            user: None,
+            sleep_timer: SleepTimer::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -95,10 +167,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     let app_state = AppState {
         rpc_client: Arc::new(RwLock::new(rpc_client)),
         show_mappings: Arc::new(RwLock::new(show_mappings)),
-        tv_mode: Arc::new(RwLock::new(TVModeStatus {
-            active: false,
-            user: None,
-        })),
+        tv_mode: Arc::new(RwLock::new(TVModeStatus::new())),
     };
 
     Ok(app_state)
