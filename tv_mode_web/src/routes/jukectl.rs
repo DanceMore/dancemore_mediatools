@@ -165,6 +165,41 @@ pub async fn proxy_update_tags(tags: Json<serde_json::Value>) -> ApiResponse<ser
     }
 }
 
+// Proxy: Get now playing + up next (the root jukectl / route)
+#[get("/jukectl/proxy")]
+pub async fn proxy_get_now_playing() -> ApiResponse<serde_json::Value> {
+    let jukectl_url = env::var("JUKECTL_API_URL")
+        .unwrap_or_else(|_| "http://localhost:8000".to_string());
+
+    let url = format!("{}/", jukectl_url);
+
+    match reqwest::get(&url).await {
+        Ok(resp) if resp.status().is_success() => {
+            match resp.json().await {
+                Ok(data) => Ok(Json(data)),
+                Err(e) => Err(Custom(
+                    Status::InternalServerError,
+                    Json(ErrorResponse {
+                        error: format!("Parse error: {}", e),
+                    }),
+                )),
+            }
+        }
+        Ok(resp) => Err(Custom(
+            Status::BadGateway,
+            Json(ErrorResponse {
+                error: format!("Backend error: {}", resp.status()),
+            }),
+        )),
+        Err(e) => Err(Custom(
+            Status::ServiceUnavailable,
+            Json(ErrorResponse {
+                error: format!("Connection error: {}", e),
+            }),
+        )),
+    }
+}
+
 // Return routes defined in this module
 pub fn routes() -> Vec<Route> {
     routes![
@@ -173,6 +208,7 @@ pub fn routes() -> Vec<Route> {
         proxy_get_queue,
         proxy_skip,
         proxy_toggle_album,
-        proxy_update_tags
+        proxy_update_tags,
+        proxy_get_now_playing,
     ]
 }
