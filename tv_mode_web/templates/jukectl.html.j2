@@ -180,6 +180,14 @@
         <div class="status-card">
             <h2 style="margin-top: 0;">Status</h2>
             <div class="status-row">
+                <span class="status-label">Now Playing:</span>
+                <span class="status-value" id="now-playing">Loading...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Up Next:</span>
+                <span class="status-value" id="up-next">-</span>
+            </div>
+            <div class="status-row">
                 <span class="status-label">Album Mode:</span>
                 <span class="status-value" id="album-status">Loading...</span>
             </div>
@@ -204,7 +212,7 @@
         
         <div class="controls">
             <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
-            <button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>
+            <!--<button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>-->
         </div>
 
         {% if channels|length > 0 %}
@@ -226,6 +234,61 @@
     <script>
         // Use the proxy endpoints on the same server to avoid CORS issues
         const API_BASE_URL = '/jukectl/proxy';
+        
+        // Helper function to format file paths nicely
+        function formatSongPath(path) {
+            if (!path) return '-';
+            
+            // Extract just the filename without extension
+            const parts = path.split('/');
+            const filename = parts[parts.length - 1];
+            
+            // Remove file extension
+            const nameWithoutExt = filename.replace(/\.(flac|mp3|m4a|ogg|wav)$/i, '');
+            
+            // Try to parse "track number song name" format
+            const match = nameWithoutExt.match(/^\d+\s+(.+)$/);
+            if (match) {
+                return match[1];
+            }
+            
+            return nameWithoutExt;
+        }
+        
+        // Update now playing info
+        async function updateNowPlaying() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/queue`);
+                const data = await response.json();
+                
+                const nowPlayingEl = document.getElementById('now-playing');
+                const upNextEl = document.getElementById('up-next');
+                
+                if (data && data.head && data.head.length > 0) {
+                    // First song in head array is now playing
+                    nowPlayingEl.textContent = formatSongPath(data.head[0]);
+                    nowPlayingEl.style.color = '#4CAF50';
+                    
+                    // Second song in head array is up next
+                    if (data.head.length > 1) {
+                        upNextEl.textContent = formatSongPath(data.head[1]);
+                        upNextEl.style.color = '#fff';
+                    } else {
+                        upNextEl.textContent = '-';
+                        upNextEl.style.color = '#666';
+                    }
+                } else {
+                    nowPlayingEl.textContent = 'Nothing playing';
+                    nowPlayingEl.style.color = '#666';
+                    upNextEl.textContent = '-';
+                    upNextEl.style.color = '#666';
+                }
+            } catch (error) {
+                console.error('Failed to fetch now playing:', error);
+                document.getElementById('now-playing').textContent = 'Error';
+                document.getElementById('now-playing').style.color = '#F44336';
+            }
+        }
         
         // Update status display
         async function updateStatus() {
@@ -294,6 +357,7 @@
             } finally {
                 showLoading(false);
                 updateStatus();
+                updateNowPlaying();
             }
         }
         
@@ -381,9 +445,13 @@
             }
         }
         
-        // Initial load and periodic updates
+        // Initial load and periodic updates (every 10 seconds instead of 5)
         updateStatus();
-        setInterval(updateStatus, 5000);
+        updateNowPlaying();
+        setInterval(() => {
+            updateStatus();
+            updateNowPlaying();
+        }, 10000);
     </script>
 </body>
 </html>
