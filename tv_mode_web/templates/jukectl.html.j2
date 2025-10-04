@@ -225,7 +225,7 @@
 
     <script>
         // API URL from environment variable passed through template
-        const API_BASE_URL = '{{ jukectl_api_url }}';
+        const API_BASE_URL = '{{ jukectl_api_url | safe }}';
         
         // Update status display
         async function updateStatus() {
