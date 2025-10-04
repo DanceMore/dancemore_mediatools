@@ -2458,6 +2458,7 @@ dependencies = [
  "env_logger",
  "koditool",
  "rand 0.9.1",
+ "reqwest",
  "rocket",
  "rocket_dyn_templates",
  "serde",

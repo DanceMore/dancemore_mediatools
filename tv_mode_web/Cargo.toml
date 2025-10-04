@@ -14,3 +14,4 @@ rocket = { version = "0.5.1", features = ["json"] }
 koditool = { path = "../koditool" }
 serde_yaml = "0.9.34"
 rocket_dyn_templates = { version = "0.2.0", features = ["minijinja"] }
+reqwest = { version = "0.11", features = ["json"] }
