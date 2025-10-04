@@ -103,6 +103,20 @@
         .btn-album.active {
             background-color: #4CAF50;
         }
+        .channel-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .btn-channel {
+            background-color: #9C27B0;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+        }
+        .btn-channel:hover, .btn-channel:active {
+            background-color: #7B1FA2;
+        }
         .loading {
             display: none;
             text-align: center;
@@ -190,7 +204,7 @@
         
         <div class="controls">
             <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
-            <!--<button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>-->
+            <button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>
         </div>
 
         {% if channels|length > 0 %}
@@ -326,6 +340,46 @@
         // Setup event listeners
         document.getElementById('skip-btn').addEventListener('click', skipSong);
         document.getElementById('album-btn').addEventListener('click', toggleAlbumMode);
+        
+        // Setup channel button listeners (only if they exist)
+        const channelButtons = document.querySelectorAll('.btn-channel');
+        if (channelButtons.length > 0) {
+            channelButtons.forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const channelData = JSON.parse(this.dataset.channel);
+                    await applyChannel(channelData);
+                });
+            });
+        }
+        
+        // Apply a channel preset
+        async function applyChannel(channel) {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        any: channel.any,
+                        not: channel.not
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification(`Channel: ${channel.name}`, 'success');
+                } else {
+                    showNotification('Failed to apply channel', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to apply channel:', error);
+                showNotification('Cannot connect to jukebox service', 'error');
+            } finally {
+                showLoading(false);
+                updateStatus();
+            }
+        }
         
         // Initial load and periodic updates
         updateStatus();
