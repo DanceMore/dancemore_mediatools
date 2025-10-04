@@ -6,122 +6,148 @@
     <title>Jukebox Control</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Arial", sans-serif;
             margin: 0;
             padding: 20px;
             background-color: #121212;
             color: #fff;
         }
+
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             padding: 20px;
         }
+
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
         }
+
         h1 {
             margin: 0;
-            color: #fff;
+            font-size: 2rem;
         }
+
         .nav-link {
             background-color: #666;
             color: white;
             padding: 10px 20px;
             text-decoration: none;
-            border-radius: 5px;
-            font-size: 14px;
+            border-radius: 6px;
+            font-weight: bold;
         }
+
         .nav-link:hover {
             background-color: #555;
         }
+
         .status-card {
             background-color: #1e1e1e;
             padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
         }
+
+        .status-card h2 {
+            margin-top: 0;
+            color: #fff;
+            font-size: 1.3rem;
+        }
+
         .status-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
+            margin: 12px 0;
+            font-size: 18px;
+        }
+
+        .status-label {
+            display: inline-block;
+            font-weight: bold;
+            color: #bbb;
+            width: 110px;
+        }
+
+        .status-value {
+            color: #d0ffd0;
+            font-weight: 500;
+        }
+
+        .status-subvalue {
+            display: block;
+            margin-left: 110px;
+            color: #aaa;
             font-size: 16px;
         }
-        .status-label {
-            font-weight: bold;
-            color: #aaa;
-        }
-        .status-value {
-            color: #fff;
-        }
+
         .tag-list {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             margin-top: 5px;
         }
+
         .tag {
             background-color: #4CAF50;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 6px 14px;
+            border-radius: 5px;
+            font-size: 15px;
         }
+
         .tag.not-tag {
             background-color: #F44336;
         }
+
         .controls {
             display: grid;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 20px;
+            margin-top: 25px;
         }
+
         .btn {
             padding: 20px;
-            font-size: 18px;
+            font-size: 22px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
-            transition: all 0.3s;
             font-weight: bold;
+            transition: 0.2s;
         }
+
         .btn-skip {
-            background-color: #FF9800;
-            color: white;
+            background-color: #d17b00;
+            color: #fff;
         }
+
         .btn-skip:hover, .btn-skip:active {
-            background-color: #F57C00;
+            background-color: #b96700;
         }
-        .btn-album {
-            background-color: #2196F3;
-            color: white;
-        }
-        .btn-album:hover, .btn-album:active {
-            background-color: #1976D2;
-        }
-        .btn-album.active {
-            background-color: #4CAF50;
-        }
+
         .channel-buttons {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 12px;
         }
+
         .btn-channel {
             background-color: #9C27B0;
             color: white;
             padding: 15px;
             font-size: 16px;
+            border-radius: 8px;
         }
+
         .btn-channel:hover, .btn-channel:active {
             background-color: #7B1FA2;
         }
+
         .loading {
             display: none;
             text-align: center;
             margin: 20px 0;
         }
+
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
@@ -131,343 +157,289 @@
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         .notification {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 15px 20px;
-            border-radius: 5px;
+            padding: 15px 25px;
+            border-radius: 6px;
             color: white;
             font-weight: bold;
             opacity: 0;
             transition: opacity 0.3s;
             z-index: 100;
             max-width: 80%;
+            text-align: center;
         }
+
         .notification.show {
             opacity: 1;
         }
-        .success {
-            background-color: #4CAF50;
-        }
-        .error {
-            background-color: #F44336;
-        }
+
+        .success { background-color: #4CAF50; }
+        .error { background-color: #F44336; }
+
         @media (max-width: 600px) {
-            .btn {
-                font-size: 22px;
-                padding: 25px;
-            }
-            .header {
-                flex-direction: column;
-                gap: 15px;
-            }
+            .btn { font-size: 20px; padding: 25px; }
+            .status-label { width: 90px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Jukebox Control</h1>
-            <a href="/" class="nav-link">TV Mode</a>
-        </div>
-        
-        <div class="status-card">
-            <h2 style="margin-top: 0;">Status</h2>
-            <div class="status-row">
-                <span class="status-label">Now Playing:</span>
-                <span class="status-value" id="now-playing">Loading...</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Up Next:</span>
-                <span class="status-value" id="up-next">-</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Album Mode:</span>
-                <span class="status-value" id="album-status">Loading...</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Playing Tags:</span>
-                <div class="tag-list" id="any-tags">
-                    <span class="status-value">Loading...</span>
-                </div>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Excluding Tags:</span>
-                <div class="tag-list" id="not-tags">
-                    <span class="status-value">None</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Processing...</p>
-        </div>
-        
-        <div class="controls">
-            <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
-            <button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>
-        </div>
-
-        {% if channels|length > 0 %}
-        <div class="status-card" style="margin-top: 30px;">
-            <h2 style="margin-top: 0;">Channel Presets</h2>
-            <div class="channel-buttons" id="channel-buttons">
-                {% for channel in channels %}
-                <button class="btn btn-channel" data-channel='{{ channel|tojson }}'>
-                    {{ channel.name }}
-                </button>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
+<div class="container">
+    <div class="header">
+        <h1>Jukebox Control</h1>
+        <a href="/" class="nav-link">TV Mode</a>
     </div>
-    
-    <div id="notification" class="notification"></div>
 
-    <script>
-        // Use the proxy endpoints on the same server to avoid CORS issues
-        const API_BASE_URL = '/jukectl/proxy';
-        
-        // Helper function to format file paths nicely
-        function formatSongPath(path) {
-            if (!path) return '-';
-            
-            // Extract just the filename without extension
-            const parts = path.split('/');
-            const filename = parts[parts.length - 1];
-            
-            // Remove file extension
-            const nameWithoutExt = filename.replace(/\.(flac|mp3|m4a|ogg|wav)$/i, '');
-            
-            // Try to parse "track number song name" format
-            const match = nameWithoutExt.match(/^\d+\s+(.+)$/);
-            if (match) {
-                return match[1];
+    <!-- Now Playing Section -->
+    <div class="status-card">
+        <h2>Now Playing</h2>
+        <div class="status-row">
+            <span class="status-label">Artist:</span>
+            <span class="status-value" id="artist">Loading...</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Album:</span>
+            <span class="status-value" id="album">Loading...</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Song:</span>
+            <span class="status-value" id="song">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Up Next Section -->
+    <div class="status-card">
+        <h2>Up Next</h2>
+        <div class="status-row">
+            <span class="status-label">Artist:</span>
+            <span class="status-value" id="next-artist">-</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Album:</span>
+            <span class="status-value" id="next-album">-</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Song:</span>
+            <span class="status-value" id="next-song">-</span>
+        </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="status-card">
+        <h2>Active Filters</h2>
+        <div class="status-row">
+            <span class="status-label">Playing Tags:</span>
+            <div class="tag-list" id="any-tags"><span>Loading...</span></div>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Excluding:</span>
+            <div class="tag-list" id="not-tags"><span>None</span></div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
+    </div>
+
+    <!-- Channel Presets -->
+    {% if channels|length > 0 %}
+    <div class="status-card">
+        <h2>Channel Presets</h2>
+        <div class="channel-buttons" id="channel-buttons">
+            {% for channel in channels %}
+            <button class="btn btn-channel" data-channel='{{ channel|tojson }}'>
+                {{ channel.name }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Queue -->
+    <div class="status-card">
+        <h2>Upcoming Queue</h2>
+        <div id="queue-list" style="font-family: monospace; white-space: pre-wrap; font-size: 14px; color: #ddd;">
+            Loading...
+        </div>
+    </div>
+</div>
+
+<div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Processing...</p>
+</div>
+
+<div id="notification" class="notification"></div>
+
+<script>
+    const API_BASE_URL = '/jukectl/proxy';
+
+    function parseSongPath(path) {
+        if (!path) return { artist: '-', album: '-', song: '-' };
+        const parts = path.split('/');
+        return {
+            artist: parts[0] || '-',
+            album: parts[1] || '-',
+            song: parts.slice(2).join('/') || '-'
+        };
+    }
+
+    async function updateNowPlaying() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/`);
+            const data = await response.json();
+
+            const now = parseSongPath(data[0]);
+            document.getElementById('artist').textContent = now.artist;
+            document.getElementById('album').textContent = now.album;
+            document.getElementById('song').textContent = now.song;
+
+            if (data[1]) {
+                const next = parseSongPath(data[1]);
+                document.getElementById('next-artist').textContent = next.artist;
+                document.getElementById('next-album').textContent = next.album;
+                document.getElementById('next-song').textContent = next.song;
+            } else {
+                document.getElementById('next-artist').textContent = '-';
+                document.getElementById('next-album').textContent = '-';
+                document.getElementById('next-song').textContent = '-';
             }
-            
-            return nameWithoutExt;
+        } catch {
+            showNotification('Failed to load now playing', 'error');
         }
+    }
 
-        function formatSongCli(path) {
-            if (!path) return '-';
-            const parts = path.split('/');
-            if (parts.length >= 3) {
-                const artist = parts[0];
-                const album = parts[1];
-                const track = parts.slice(2).join('/');
-                return `${artist} / ${album} / ${track}`;
+    async function updateTags() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/tags`);
+            const data = await res.json();
+
+            const anyEl = document.getElementById('any-tags');
+            const notEl = document.getElementById('not-tags');
+
+            anyEl.innerHTML = data.any?.length
+                ? data.any.map(t => `<span class="tag">${t}</span>`).join('')
+                : '<span>None</span>';
+
+            notEl.innerHTML = data.not?.length
+                ? data.not.map(t => `<span class="tag not-tag">${t}</span>`).join('')
+                : '<span>None</span>';
+        } catch {
+            showNotification('Tag data unavailable', 'error');
+        }
+    }
+
+    async function updateQueue() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/queue`);
+            const data = await res.json();
+            const el = document.getElementById('queue-list');
+
+            if (data.head) {
+                el.textContent = `Queue length: ${data.length}\n` +
+                    data.head.slice(0, 10).map((s, i) => `${i + 1}. ${s}`).join("\n");
+            } else {
+                el.textContent = 'No queue data available';
             }
-            return path; // fallback if structure is unexpected
+        } catch {
+            document.getElementById('queue-list').textContent = 'Queue unavailable';
         }
+    }
 
-        // Update now playing info
-        async function updateNowPlaying() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/queue?count=2`);
-                const data = await response.json();
+    async function skipSong() {
+        showLoading(true);
+        const prevSong = document.getElementById('song').textContent;
 
-                const nowPlayingEl = document.getElementById('now-playing');
-                const upNextEl = document.getElementById('up-next');
+        try {
+            const res = await fetch(`${API_BASE_URL}/skip`, { method: 'POST' });
+            if (!res.ok) throw new Error("Skip failed");
 
-                if (data && data.head && data.head.length > 0) {
-                    nowPlayingEl.textContent = formatSongCli(data.head[0]);
-                    nowPlayingEl.style.color = '#4CAF50';
+            showNotification('Skipping...', 'success');
 
-                    if (data.head.length > 1) {
-                        upNextEl.textContent = formatSongCli(data.head[1]);
-                        upNextEl.style.color = '#fff';
-                    } else {
-                        upNextEl.textContent = '-';
-                        upNextEl.style.color = '#666';
-                    }
-                } else {
-                    nowPlayingEl.textContent = 'Nothing playing';
-                    nowPlayingEl.style.color = '#666';
-                    upNextEl.textContent = '-';
-                    upNextEl.style.color = '#666';
+            // Try refreshing every 500ms until song changes or timeout
+            let attempts = 0;
+            const maxAttempts = 20; // 10 seconds
+            let changed = false;
+
+            while (attempts < maxAttempts && !changed) {
+                await new Promise(r => setTimeout(r, 500));
+                await updateNowPlaying();
+                const currentSong = document.getElementById('song').textContent;
+                if (currentSong !== prevSong && currentSong !== 'Loading...') {
+                    changed = true;
                 }
-            } catch (error) {
-                console.error('Failed to fetch now playing:', error);
-                document.getElementById('now-playing').textContent = 'Error';
-                document.getElementById('now-playing').style.color = '#F44336';
+                attempts++;
             }
-        }
 
-        // Update status display
-        async function updateStatus() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/tags`);
-                const data = await response.json();
-                
-                // Update album mode status
-                const albumStatusEl = document.getElementById('album-status');
-                albumStatusEl.textContent = data.album_aware ? 'ON' : 'OFF';
-                albumStatusEl.style.color = data.album_aware ? '#4CAF50' : '#F44336';
-                
-                // Update album button appearance
-                const albumBtn = document.getElementById('album-btn');
-                if (data.album_aware) {
-                    albumBtn.classList.add('active');
-                    albumBtn.textContent = 'ALBUM MODE: ON';
-                } else {
-                    albumBtn.classList.remove('active');
-                    albumBtn.textContent = 'ALBUM MODE: OFF';
-                }
-                
-                // Update "any" tags
-                const anyTagsEl = document.getElementById('any-tags');
-                if (data.any && data.any.length > 0) {
-                    anyTagsEl.innerHTML = data.any
-                        .map(tag => `<span class="tag">${tag}</span>`)
-                        .join('');
-                } else {
-                    anyTagsEl.innerHTML = '<span class="status-value">None</span>';
-                }
-                
-                // Update "not" tags
-                const notTagsEl = document.getElementById('not-tags');
-                if (data.not && data.not.length > 0) {
-                    notTagsEl.innerHTML = data.not
-                        .map(tag => `<span class="tag not-tag">${tag}</span>`)
-                        .join('');
-                } else {
-                    notTagsEl.innerHTML = '<span class="status-value">None</span>';
-                }
-                
-            } catch (error) {
-                console.error('Failed to fetch status:', error);
-                showNotification('Cannot connect to jukebox service', 'error');
+            if (changed) {
+                showNotification('Song skipped!', 'success');
+            } else {
+                showNotification('Skip complete (delayed update)', 'success');
             }
+
+            updateQueue();
+            updateTags();
+
+        } catch (err) {
+            console.error(err);
+            showNotification('Failed to skip song', 'error');
+        } finally {
+            showLoading(false);
         }
-        
-        // Skip current song
-        async function skipSong() {
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+
+    function showNotification(msg, type) {
+        const n = document.getElementById('notification');
+        n.textContent = msg;
+        n.className = `notification ${type} show`;
+        setTimeout(() => n.classList.remove('show'), 3000);
+    }
+
+    document.getElementById('skip-btn').addEventListener('click', skipSong);
+
+    document.querySelectorAll('.btn-channel').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const channel = JSON.parse(this.dataset.channel);
             showLoading(true);
             try {
-                const response = await fetch(`${API_BASE_URL}/skip`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    showNotification('Song skipped!', 'success');
-                } else {
-                    showNotification('Failed to skip song', 'error');
-                }
-            } catch (error) {
-                console.error('Failed to skip:', error);
-                showNotification('Cannot connect to jukebox service', 'error');
-            } finally {
-                showLoading(false);
-                updateStatus();
-                updateNowPlaying();
-
-                // Force another refresh after 1s to catch MPD state updates
-                setTimeout(() => {
-                    updateStatus();
-                    updateNowPlaying();
-                }, 2000);
-            }
-        }
-        
-        // Toggle album mode
-        async function toggleAlbumMode() {
-            showLoading(true);
-            try {
-                const response = await fetch(`${API_BASE_URL}/album-mode/toggle`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const mode = data.album_aware ? 'ON' : 'OFF';
-                    showNotification(`Album mode: ${mode}`, 'success');
-                } else {
-                    showNotification('Failed to toggle album mode', 'error');
-                }
-            } catch (error) {
-                console.error('Failed to toggle album mode:', error);
-                showNotification('Cannot connect to jukebox service', 'error');
-            } finally {
-                showLoading(false);
-                updateStatus();
-            }
-        }
-        
-        // Show/hide loading indicator
-        function showLoading(show) {
-            document.getElementById('loading').style.display = show ? 'block' : 'none';
-        }
-        
-        // Show notifications
-        function showNotification(message, type) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type} show`;
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-        
-        // Setup event listeners
-        document.getElementById('skip-btn').addEventListener('click', skipSong);
-        document.getElementById('album-btn').addEventListener('click', toggleAlbumMode);
-        
-        // Setup channel button listeners (only if they exist)
-        const channelButtons = document.querySelectorAll('.btn-channel');
-        if (channelButtons.length > 0) {
-            channelButtons.forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const channelData = JSON.parse(this.dataset.channel);
-                    await applyChannel(channelData);
-                });
-            });
-        }
-        
-        // Apply a channel preset
-        async function applyChannel(channel) {
-            showLoading(true);
-            try {
-                const response = await fetch(`${API_BASE_URL}/tags`, {
+                const res = await fetch(`${API_BASE_URL}/tags`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        any: channel.any,
-                        not: channel.not
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ any: channel.any, not: channel.not })
                 });
-                
-                if (response.ok) {
-                    showNotification(`Channel: ${channel.name}`, 'success');
-                } else {
-                    showNotification('Failed to apply channel', 'error');
-                }
-            } catch (error) {
-                console.error('Failed to apply channel:', error);
-                showNotification('Cannot connect to jukebox service', 'error');
+                if (res.ok) showNotification(`Channel: ${channel.name}`, 'success');
+            } catch {
+                showNotification('Failed to apply channel', 'error');
             } finally {
                 showLoading(false);
-                updateStatus();
+                updateTags();
             }
-        }
-        
-        // Initial load and periodic updates (every 10 seconds instead of 5)
-        updateStatus();
+        });
+    });
+
+    // Initial refresh
+    updateNowPlaying();
+    updateTags();
+    updateQueue();
+    setInterval(() => {
         updateNowPlaying();
-        setInterval(() => {
-            updateStatus();
-            updateNowPlaying();
-        }, 10000);
-    </script>
+        updateTags();
+        updateQueue();
+    }, 10000);
+</script>
 </body>
 </html>
