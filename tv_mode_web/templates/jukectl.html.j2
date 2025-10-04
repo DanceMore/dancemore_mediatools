@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jukebox Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #121212;
+            color: #fff;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            margin: 0;
+            color: #fff;
+        }
+        .nav-link {
+            background-color: #666;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .nav-link:hover {
+            background-color: #555;
+        }
+        .status-card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .status-label {
+            font-weight: bold;
+            color: #aaa;
+        }
+        .status-value {
+            color: #fff;
+        }
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .tag {
+            background-color: #4CAF50;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .tag.not-tag {
+            background-color: #F44336;
+        }
+        .controls {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-skip {
+            background-color: #FF9800;
+            color: white;
+        }
+        .btn-skip:hover, .btn-skip:active {
+            background-color: #F57C00;
+        }
+        .btn-album {
+            background-color: #2196F3;
+            color: white;
+        }
+        .btn-album:hover, .btn-album:active {
+            background-color: #1976D2;
+        }
+        .btn-album.active {
+            background-color: #4CAF50;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            max-width: 80%;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+        .success {
+            background-color: #4CAF50;
+        }
+        .error {
+            background-color: #F44336;
+        }
+        @media (max-width: 600px) {
+            .btn {
+                font-size: 22px;
+                padding: 25px;
+            }
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Jukebox Control</h1>
+            <a href="/" class="nav-link">TV Mode</a>
+        </div>
+        
+        <div class="status-card">
+            <h2 style="margin-top: 0;">Status</h2>
+            <div class="status-row">
+                <span class="status-label">Album Mode:</span>
+                <span class="status-value" id="album-status">Loading...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Playing Tags:</span>
+                <div class="tag-list" id="any-tags">
+                    <span class="status-value">Loading...</span>
+                </div>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Excluding Tags:</span>
+                <div class="tag-list" id="not-tags">
+                    <span class="status-value">None</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+        
+        <div class="controls">
+            <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
+            <button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>
+        </div>
+    </div>
+    
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // API URL from environment variable passed through template
+        const API_BASE_URL = '{{ jukectl_api_url }}';
+        
+        // Update status display
+        async function updateStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tags`);
+                const data = await response.json();
+                
+                // Update album mode status
+                const albumStatusEl = document.getElementById('album-status');
+                albumStatusEl.textContent = data.album_aware ? 'ON' : 'OFF';
+                albumStatusEl.style.color = data.album_aware ? '#4CAF50' : '#F44336';
+                
+                // Update album button appearance
+                const albumBtn = document.getElementById('album-btn');
+                if (data.album_aware) {
+                    albumBtn.classList.add('active');
+                    albumBtn.textContent = 'ALBUM MODE: ON';
+                } else {
+                    albumBtn.classList.remove('active');
+                    albumBtn.textContent = 'ALBUM MODE: OFF';
+                }
+                
+                // Update "any" tags
+                const anyTagsEl = document.getElementById('any-tags');
+                if (data.any && data.any.length > 0) {
+                    anyTagsEl.innerHTML = data.any
+                        .map(tag => `<span class="tag">${tag}</span>`)
+                        .join('');
+                } else {
+                    anyTagsEl.innerHTML = '<span class="status-value">None</span>';
+                }
+                
+                // Update "not" tags
+                const notTagsEl = document.getElementById('not-tags');
+                if (data.not && data.not.length > 0) {
+                    notTagsEl.innerHTML = data.not
+                        .map(tag => `<span class="tag not-tag">${tag}</span>`)
+                        .join('');
+                } else {
+                    notTagsEl.innerHTML = '<span class="status-value">None</span>';
+                }
+                
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+                showNotification('Cannot connect to jukebox service', 'error');
+            }
+        }
+        
+        // Skip current song
+        async function skipSong() {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/skip`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showNotification('Song skipped!', 'success');
+                } else {
+                    showNotification('Failed to skip song', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to skip:', error);
+                showNotification('Cannot connect to jukebox service', 'error');
+            } finally {
+                showLoading(false);
+                updateStatus();
+            }
+        }
+        
+        // Toggle album mode
+        async function toggleAlbumMode() {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/album-mode/toggle`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const mode = data.album_aware ? 'ON' : 'OFF';
+                    showNotification(`Album mode: ${mode}`, 'success');
+                } else {
+                    showNotification('Failed to toggle album mode', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to toggle album mode:', error);
+                showNotification('Cannot connect to jukebox service', 'error');
+            } finally {
+                showLoading(false);
+                updateStatus();
+            }
+        }
+        
+        // Show/hide loading indicator
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        // Show notifications
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Setup event listeners
+        document.getElementById('skip-btn').addEventListener('click', skipSong);
+        document.getElementById('album-btn').addEventListener('click', toggleAlbumMode);
+        
+        // Initial load and periodic updates
+        updateStatus();
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>
