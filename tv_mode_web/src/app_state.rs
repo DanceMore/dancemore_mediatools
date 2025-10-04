@@ -36,6 +36,19 @@ impl ShowMappings {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct JukectlChannel {
+    pub name: String,
+    pub any: Vec<String>,
+    #[serde(default)]
+    pub not: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct JukectlChannels {
+    pub channels: Vec<JukectlChannel>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SleepTimer {
     pub enabled: bool,
     pub duration_hours: u32,
@@ -155,6 +168,7 @@ pub struct AppState {
     pub rpc_client: Arc<RwLock<RpcClient>>,
     pub show_mappings: Arc<RwLock<ShowMappings>>,
     pub tv_mode: Arc<RwLock<TVModeStatus>>,
+    pub jukectl_channels: Arc<RwLock<Vec<JukectlChannel>>>,
 }
 
 pub fn initialize() -> Result<AppState, std::io::Error> {
@@ -164,6 +178,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     // Build the full paths for config files
     let config_path = Path::new(&config_dir).join("config.yml");
     let mappings_path = Path::new(&config_dir).join("show_mappings.yml");
+    let jukectl_path = Path::new(&config_dir).join("jukectl_channels.yml");
 
     // Load config
     let config = match Config::load(config_path.to_str().unwrap()) {
@@ -201,11 +216,24 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
         }
     };
 
+    // Load jukectl channels (optional)
+    let jukectl_channels = match load_jukectl_channels(&jukectl_path) {
+        Ok(channels) => channels,
+        Err(e) => {
+            eprintln!(
+                "Failed to load jukectl channels from {:?}: {} (using empty list)",
+                jukectl_path, e
+            );
+            Vec::new() // Use empty list if file doesn't exist or fails to load
+        }
+    };
+
     // Create app state with mutexes and Arc
     let app_state = AppState {
         rpc_client: Arc::new(RwLock::new(rpc_client)),
         show_mappings: Arc::new(RwLock::new(show_mappings)),
         tv_mode: Arc::new(RwLock::new(TVModeStatus::new())),
+        jukectl_channels: Arc::new(RwLock::new(jukectl_channels)),
     };
 
     Ok(app_state)
@@ -224,5 +252,15 @@ fn load_show_mappings(path: &Path) -> Result<ShowMappings, String> {
             }
 
             Ok(mappings)
+        })
+}
+
+fn load_jukectl_channels(path: &Path) -> Result<Vec<JukectlChannel>, String> {
+    std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))
+        .and_then(|content| {
+            let channels_config: JukectlChannels = serde_yaml::from_str(&content)
+                .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))?;
+            Ok(channels_config.channels)
         })
 }

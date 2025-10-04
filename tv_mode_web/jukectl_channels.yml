@@ -1,0 +1,13 @@
+channels:
+  - name: "jukebox"
+    any:
+      - jukebox
+    not:
+      - explicit
+
+  - name: "galaxy vibes"
+    any:
+      - galaxy-vibes
+    not:
+      - explicit
+

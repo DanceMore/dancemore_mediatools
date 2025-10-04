@@ -192,6 +192,19 @@
             <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
             <!--<button id="album-btn" class="btn btn-album">TOGGLE ALBUM MODE</button>-->
         </div>
+
+        {% if channels|length > 0 %}
+        <div class="status-card" style="margin-top: 30px;">
+            <h2 style="margin-top: 0;">Channel Presets</h2>
+            <div class="channel-buttons" id="channel-buttons">
+                {% for channel in channels %}
+                <button class="btn btn-channel" data-channel='{{ channel|tojson }}'>
+                    {{ channel.name }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
     
     <div id="notification" class="notification"></div>
