@@ -254,24 +254,34 @@
             
             return nameWithoutExt;
         }
-        
+
+        function formatSongCli(path) {
+            if (!path) return '-';
+            const parts = path.split('/');
+            if (parts.length >= 3) {
+                const artist = parts[0];
+                const album = parts[1];
+                const track = parts.slice(2).join('/');
+                return `${artist} / ${album} / ${track}`;
+            }
+            return path; // fallback if structure is unexpected
+        }
+
         // Update now playing info
         async function updateNowPlaying() {
             try {
-                const response = await fetch(`${API_BASE_URL}/queue`);
+                const response = await fetch(`${API_BASE_URL}/queue?count=2`);
                 const data = await response.json();
-                
+
                 const nowPlayingEl = document.getElementById('now-playing');
                 const upNextEl = document.getElementById('up-next');
-                
+
                 if (data && data.head && data.head.length > 0) {
-                    // First song in head array is now playing
-                    nowPlayingEl.textContent = formatSongPath(data.head[0]);
+                    nowPlayingEl.textContent = formatSongCli(data.head[0]);
                     nowPlayingEl.style.color = '#4CAF50';
-                    
-                    // Second song in head array is up next
+
                     if (data.head.length > 1) {
-                        upNextEl.textContent = formatSongPath(data.head[1]);
+                        upNextEl.textContent = formatSongCli(data.head[1]);
                         upNextEl.style.color = '#fff';
                     } else {
                         upNextEl.textContent = '-';
@@ -289,7 +299,7 @@
                 document.getElementById('now-playing').style.color = '#F44336';
             }
         }
-        
+
         // Update status display
         async function updateStatus() {
             try {
@@ -358,6 +368,12 @@
                 showLoading(false);
                 updateStatus();
                 updateNowPlaying();
+
+                // Force another refresh after 1s to catch MPD state updates
+                setTimeout(() => {
+                    updateStatus();
+                    updateNowPlaying();
+                }, 2000);
             }
         }
         

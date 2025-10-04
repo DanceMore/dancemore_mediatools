@@ -60,24 +60,40 @@ pub async fn proxy_get_tags() -> ApiResponse<serde_json::Value> {
 }
 
 // Proxy: Get current queue/now playing
-#[get("/jukectl/proxy/queue")]
-pub async fn proxy_get_queue() -> ApiResponse<serde_json::Value> {
+#[get("/jukectl/proxy/queue?<count>")]
+pub async fn proxy_get_queue(count: Option<usize>) -> ApiResponse<serde_json::Value> {
     let jukectl_url = env::var("JUKECTL_API_URL")
         .unwrap_or_else(|_| "http://localhost:8000".to_string());
-    
-    // Use the /queue endpoint which gives us head, tail, and length
-    match reqwest::get(format!("{}/queue", jukectl_url)).await {
+
+    // Default to 3 if not provided
+    let count_value = count.unwrap_or(3);
+
+    let url = format!("{}/queue?count={}", jukectl_url, count_value);
+
+    match reqwest::get(url).await {
         Ok(resp) if resp.status().is_success() => {
             match resp.json().await {
                 Ok(data) => Ok(Json(data)),
-                Err(e) => Err(Custom(Status::InternalServerError, 
-                    Json(ErrorResponse { error: format!("Parse error: {}", e) }))),
+                Err(e) => Err(Custom(
+                    Status::InternalServerError,
+                    Json(ErrorResponse {
+                        error: format!("Parse error: {}", e),
+                    }),
+                )),
             }
         }
-        Ok(resp) => Err(Custom(Status::BadGateway,
-            Json(ErrorResponse { error: format!("Backend error: {}", resp.status()) }))),
-        Err(e) => Err(Custom(Status::ServiceUnavailable,
-            Json(ErrorResponse { error: format!("Connection error: {}", e) }))),
+        Ok(resp) => Err(Custom(
+            Status::BadGateway,
+            Json(ErrorResponse {
+                error: format!("Backend error: {}", resp.status()),
+            }),
+        )),
+        Err(e) => Err(Custom(
+            Status::ServiceUnavailable,
+            Json(ErrorResponse {
+                error: format!("Connection error: {}", e),
+            }),
+        )),
     }
 }
 
@@ -154,6 +170,7 @@ pub fn routes() -> Vec<Route> {
     routes![
         jukectl_page,
         proxy_get_tags,
+        proxy_get_queue,
         proxy_skip,
         proxy_toggle_album,
         proxy_update_tags
