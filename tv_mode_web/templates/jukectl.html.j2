@@ -124,6 +124,23 @@
             background-color: #b96700;
         }
 
+        .btn-album-mode {
+            background-color: #2196F3;
+            color: #fff;
+        }
+
+        .btn-album-mode:hover, .btn-album-mode:active {
+            background-color: #1976D2;
+        }
+
+        .btn-album-mode.active {
+            background-color: #4CAF50;
+        }
+
+        .btn-album-mode.active:hover, .btn-album-mode.active:active {
+            background-color: #388E3C;
+        }
+
         .channel-buttons {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -244,11 +261,16 @@
             <span class="status-label">Excluding:</span>
             <div class="tag-list" id="not-tags"><span>None</span></div>
         </div>
+        <div class="status-row">
+            <span class="status-label">Album Mode:</span>
+            <span class="status-value" id="album-mode-status">Loading...</span>
+        </div>
     </div>
 
     <!-- Controls -->
     <div class="controls">
         <button id="skip-btn" class="btn btn-skip">SKIP SONG</button>
+        <button id="album-mode-btn" class="btn btn-album-mode">TOGGLE ALBUM MODE</button>
     </div>
 
     <!-- Channel Presets -->
@@ -326,6 +348,8 @@
 
             const anyEl = document.getElementById('any-tags');
             const notEl = document.getElementById('not-tags');
+            const albumModeStatusEl = document.getElementById('album-mode-status');
+            const albumModeBtn = document.getElementById('album-mode-btn');
 
             anyEl.innerHTML = data.any?.length
                 ? data.any.map(t => `<span class="tag">${t}</span>`).join('')
@@ -334,6 +358,16 @@
             notEl.innerHTML = data.not?.length
                 ? data.not.map(t => `<span class="tag not-tag">${t}</span>`).join('')
                 : '<span>None</span>';
+
+            // Update album mode status
+            const albumAware = data.album_aware;
+            albumModeStatusEl.textContent = albumAware ? 'Enabled' : 'Disabled';
+
+            if (albumAware) {
+                albumModeBtn.classList.add('active');
+            } else {
+                albumModeBtn.classList.remove('active');
+            }
         } catch {
             showNotification('Tag data unavailable', 'error');
         }
@@ -398,6 +432,25 @@
         }
     }
 
+    async function toggleAlbumMode() {
+        showLoading(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/album-mode/toggle`, { method: 'POST' });
+            if (!res.ok) throw new Error("Toggle failed");
+
+            const data = await res.json();
+            showNotification(data.message, 'success');
+
+            await updateTags();
+            await updateQueue();
+        } catch (err) {
+            console.error(err);
+            showNotification('Failed to toggle album mode', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
     function showLoading(show) {
         document.getElementById('loading').style.display = show ? 'block' : 'none';
     }
@@ -410,6 +463,7 @@
     }
 
     document.getElementById('skip-btn').addEventListener('click', skipSong);
+    document.getElementById('album-mode-btn').addEventListener('click', toggleAlbumMode);
 
     document.querySelectorAll('.btn-channel').forEach(btn => {
         btn.addEventListener('click', async function() {
