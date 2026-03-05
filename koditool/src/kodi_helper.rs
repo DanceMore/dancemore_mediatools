@@ -55,7 +55,7 @@ impl Authorization {
 // individual found Episode Struct
 #[derive(Clone, Debug)]
 pub struct SelectedEpisode {
-    pub episode_id: u64,
+    pub _episode_id: u64,
     pub episode_file_path: String,
 }
 
@@ -71,6 +71,7 @@ pub struct RpcClient {
     pub config: Config,
     pub auth: Authorization,
     pub client: Client,
+    pub seed: Option<[u8; 32]>,
 }
 
 impl RpcClient {
@@ -82,7 +83,14 @@ impl RpcClient {
             auth,
             config,
             client,
+            seed: None,
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn with_seed(mut self, seed: [u8; 32]) -> Self {
+        self.seed = Some(seed);
+        self
     }
 
     pub async fn select_random_episode_by_title(
@@ -160,12 +168,8 @@ impl RpcClient {
         // Randomly select an episode ID
 
         let mut seed_array = [0u8; 32];
-        if let Ok(seed_str) = std::env::var("KODITOOL_TEST_SEED") {
-            if let Ok(seed_val) = seed_str.parse::<u64>() {
-                // For testing purposes, we use a simple way to seed from u64
-                let seed_bytes = seed_val.to_le_bytes();
-                seed_array[..8].copy_from_slice(&seed_bytes);
-            }
+        if let Some(seed) = self.seed {
+            seed_array = seed;
         } else {
             let _ = rng().try_fill_bytes(&mut seed_array);
         }
@@ -200,7 +204,7 @@ impl RpcClient {
         //println!("[!] file path => {:?}", episode_file_path);
 
         let selected_episode = SelectedEpisode {
-            episode_id: *random_episode_id,
+            _episode_id: *random_episode_id,
             episode_file_path,
         };
 
@@ -263,6 +267,7 @@ impl RpcClient {
     }
 
     // method to stop playback
+    #[allow(dead_code)]
     pub async fn rpc_stop(&self) -> Result<(), Box<dyn std::error::Error>> {
         // Create a JSON-RPC request to stop playback
         let params = serde_json::json!({
@@ -280,6 +285,7 @@ impl RpcClient {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn is_active(&self) -> Result<bool, Box<dyn Error>> {
         let active_players_request_params = json!({
             "jsonrpc": "2.0",

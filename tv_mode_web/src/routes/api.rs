@@ -3,14 +3,13 @@ use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use rocket::serde::Deserialize;
 use rocket::serde::Serialize;
-use rocket::tokio::time::{Duration, Instant};
+use rocket::tokio::time::Duration;
 use rocket::Route;
 use rocket::State;
 
 use std::collections::BTreeMap;
 
 use crate::app_state::AppState;
-use crate::app_state::ShowMappings;
 use crate::app_state::TVModeStatus;
 
 type ApiResponse<T> = Result<Json<T>, Custom<Json<StatusResponse>>>;

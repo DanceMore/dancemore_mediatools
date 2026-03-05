@@ -22,7 +22,7 @@ mod tests {
     // Helper to create a client with mocked config
     fn test_client() -> RpcClient {
         let config = test_config();
-        RpcClient::new(config).unwrap()
+        RpcClient::new(config).unwrap().with_seed(Default::default())
     }
 
     #[tokio::test]
@@ -128,16 +128,13 @@ mod tests {
 
         let client = test_client();
 
-        // Set the test seed to ensure deterministic results
-        std::env::set_var("KODITOOL_TEST_SEED", "42");
-
-        // Note: With seed 42, episode 102 is selected
+        // Note: This test will always select episode 101 with our fixed seed
         let result = client
             .select_random_episode_by_title("Friends")
             .await
             .unwrap();
 
-        assert_eq!(result.episode_id, 102);
+        assert_eq!(result._episode_id, 101);
         assert_eq!(result.episode_file_path, "/path/to/episode.mp4");
 
         // Verify all mocks were called
@@ -174,7 +171,7 @@ mod tests {
 
         let client = test_client();
         let episode = SelectedEpisode {
-            episode_id: 101,
+            _episode_id: 101,
             episode_file_path: "/path/to/test_episode.mp4".to_string(),
         };
 
