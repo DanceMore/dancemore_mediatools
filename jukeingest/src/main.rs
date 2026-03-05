@@ -160,7 +160,7 @@ fn save_last_run_timestamp() -> io::Result<()> {
 
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            .map_err(io::Error::other)?
             .as_secs();
 
         let mut file = OpenOptions::new()
@@ -172,7 +172,7 @@ fn save_last_run_timestamp() -> io::Result<()> {
         write!(file, "{}", timestamp)?;
         return Ok(());
     }
-    Err(io::Error::new(io::ErrorKind::Other, "Failed to determine home directory"))
+    Err(io::Error::other("Failed to determine home directory"))
 }
 
 fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {

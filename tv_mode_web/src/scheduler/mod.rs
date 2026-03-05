@@ -72,7 +72,7 @@ async fn scheduler_mainbody(app_state: AppState) {
         iteration_count += 1;
 
         // Log iteration count periodically instead of every time
-        if iteration_count % 12 == 0 {
+        if iteration_count.is_multiple_of(12) {
             // Every minute with 5s intervals
             debug!("Scheduler iteration #{}", iteration_count);
         }
@@ -100,7 +100,7 @@ async fn scheduler_mainbody(app_state: AppState) {
 
                 // Only log errors occasionally to prevent spam
                 if scheduler_state.consecutive_errors <= 3
-                    || scheduler_state.consecutive_errors % 10 == 0
+                    || scheduler_state.consecutive_errors.is_multiple_of(10)
                 {
                     error!(
                         "Scheduler error #{}: {} (will retry in {}s)",
@@ -205,7 +205,7 @@ async fn process_scheduler_iteration(app_state: &AppState) -> Result<bool, Strin
     Ok(true)
 }
 
-fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
+fn select_random_show_name(shows: &[String]) -> Option<&String> {
     if shows.is_empty() {
         return None;
     }
