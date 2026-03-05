@@ -71,13 +71,19 @@ impl std::fmt::Display for SelectedEpisode {
 pub struct RpcClient {
     pub config: Config,
     pub auth: Authorization,
+    pub client: Client,
 }
 
 impl RpcClient {
     // Create a new instance of RpcClient
     pub fn new(config: Config) -> Result<Self, Box<dyn Error>> {
         let auth = Authorization::new(&config.username, &config.password);
-        Ok(RpcClient { auth, config })
+        let client = Client::new();
+        Ok(RpcClient {
+            auth,
+            config,
+            client,
+        })
     }
 
     pub async fn select_random_episode_by_title(
@@ -195,8 +201,6 @@ impl RpcClient {
     }
 
     pub async fn rpc_call(&self, request_params: &Value) -> Result<Value, Box<dyn Error>> {
-        let client = Client::new();
-
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, self.auth.auth_header_value().clone());
         headers.insert(
@@ -209,7 +213,8 @@ impl RpcClient {
         // Serialize the request params to a JSON string
         let json_body = serde_json::to_string(request_params)?;
 
-        let response = client
+        let response = self
+            .client
             .post(&url)
             .headers(headers)
             .body(json_body) // Use body with JSON string
