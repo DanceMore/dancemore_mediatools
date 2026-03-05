@@ -208,7 +208,7 @@ mod tests {
 
         let client = test_client();
         let result = client.is_active().await.unwrap();
-        assert_eq!(result, true);
+        assert!(result);
     }
 
     #[tokio::test]
@@ -221,7 +221,7 @@ mod tests {
 
         let client = test_client();
         let result = client.is_active().await.unwrap();
-        assert_eq!(result, false);
+        assert!(!result);
     }
 
     #[tokio::test]
