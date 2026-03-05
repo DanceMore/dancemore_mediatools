@@ -422,6 +422,10 @@ dependencies = [
 [[package]]
 name = "dupehunter"
 version = "0.1.0"
+dependencies = [
+ "clap",
+ "tempfile",
+]
 
 [[package]]
 name = "either"
