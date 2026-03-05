@@ -10,7 +10,6 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
 use std::error::Error;
-use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
@@ -56,7 +55,7 @@ impl Authorization {
 // individual found Episode Struct
 #[derive(Clone, Debug)]
 pub struct SelectedEpisode {
-    pub episode_id: u64,
+    pub _episode_id: u64,
     pub episode_file_path: String,
 }
 
@@ -72,6 +71,7 @@ pub struct RpcClient {
     pub config: Config,
     pub auth: Authorization,
     pub client: Client,
+    pub seed: Option<[u8; 32]>,
 }
 
 impl RpcClient {
@@ -83,7 +83,14 @@ impl RpcClient {
             auth,
             config,
             client,
+            seed: None,
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn with_seed(mut self, seed: [u8; 32]) -> Self {
+        self.seed = Some(seed);
+        self
     }
 
     pub async fn select_random_episode_by_title(
@@ -161,7 +168,11 @@ impl RpcClient {
         // Randomly select an episode ID
 
         let mut seed_array = [0u8; 32];
-        let _ = rng().try_fill_bytes(&mut seed_array);
+        if let Some(seed) = self.seed {
+            seed_array = seed;
+        } else {
+            let _ = rng().try_fill_bytes(&mut seed_array);
+        }
 
         let mut rng = ChaCha12Rng::from_seed(seed_array);
         let random_episode_id = episode_ids
@@ -193,7 +204,7 @@ impl RpcClient {
         //println!("[!] file path => {:?}", episode_file_path);
 
         let selected_episode = SelectedEpisode {
-            episode_id: *random_episode_id,
+            _episode_id: *random_episode_id,
             episode_file_path,
         };
 
@@ -256,6 +267,7 @@ impl RpcClient {
     }
 
     // method to stop playback
+    #[allow(dead_code)]
     pub async fn rpc_stop(&self) -> Result<(), Box<dyn std::error::Error>> {
         // Create a JSON-RPC request to stop playback
         let params = serde_json::json!({
@@ -273,6 +285,7 @@ impl RpcClient {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn is_active(&self) -> Result<bool, Box<dyn Error>> {
         let active_players_request_params = json!({
             "jsonrpc": "2.0",
