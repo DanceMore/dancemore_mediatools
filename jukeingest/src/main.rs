@@ -36,20 +36,16 @@ struct Cli {
     playlist: String,
 
     /// Sets the threshold in days
-    #[arg(short, long, conflicts_with = "detect", required_unless_present = "detect")]
+    #[arg(short, long)]
     threshold_days: Option<u32>,
 
     /// Auto-detect day threshold based on .last_run
-    #[arg(long, conflicts_with = "threshold_days", required_unless_present = "threshold_days")]
+    #[arg(long)]
     detect: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-
-    if !cli.detect && cli.threshold_days.is_none() {
-        return Err("Error: Either --detect or --threshold-days must be provided.".into());
-    }
 
     let now = SystemTime::now();
     let last_run_timestamp = read_last_run_timestamp().unwrap_or(None);
@@ -77,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", "[+] Using last_run timestamp directly...".yellow());
         last_run
     } else {
-        let days = cli.threshold_days.unwrap();
+        let days = cli.threshold_days.expect("ArgGroup ensures either detect or threshold_days is provided");
         println!(
             "{} {}",
             "[+] Using Threshold (in days):".red(),
@@ -102,9 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         write_playlist(&cli.playlist, &playlist)?;
-        if !cli.dryrun {
-            save_last_run_timestamp()?;
-        }
+        save_last_run_timestamp()?;
         println!(
             "{} {}",
             "[+] Playlist file successfully updated at:".green(),
@@ -129,8 +123,8 @@ fn process_directory(root_path: &str, threshold_time: SystemTime, playlist: &mut
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.metadata().map(|m| {
-                m.is_file() && m.modified().is_ok_and(|mod_time| mod_time > threshold_time)
-            }).unwrap_or(false) && !e.path().starts_with(&playlists_path)
+                m.is_file() && m.modified().map_or(false, |mod_time| mod_time > threshold_time)
+            }).unwrap_or(false)
         })
     {
         let path = entry.path();
