@@ -7,7 +7,7 @@ use crate::app_state::AppState;
 #[get("/")]
 pub async fn index(_app_state: &State<AppState>) -> Template {
     let context = "";
-    Template::render("index", &context)
+    Template::render("index", context)
 }
 
 // Return routes defined in this module

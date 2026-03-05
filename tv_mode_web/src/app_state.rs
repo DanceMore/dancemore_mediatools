@@ -61,6 +61,12 @@ pub struct SleepTimer {
 
 impl SleepTimer {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for SleepTimer {
+    fn default() -> Self {
         Self {
             enabled: false,
             duration_hours: 2, // Default 2 hours
@@ -68,7 +74,9 @@ impl SleepTimer {
             remaining_seconds: None,
         }
     }
+}
 
+impl SleepTimer {
     pub fn start(&mut self, duration_hours: u32) {
         self.enabled = true;
         self.duration_hours = duration_hours;
@@ -92,7 +100,7 @@ impl SleepTimer {
         }
 
         self.update_remaining_time_const();
-        self.remaining_seconds.map_or(true, |remaining| remaining == 0)
+        self.remaining_seconds.is_none_or(|remaining| remaining == 0)
     }
 
     pub fn update_remaining_time(&mut self) {
@@ -132,15 +140,11 @@ impl SleepTimer {
         let elapsed_seconds = current_timestamp.saturating_sub(start_timestamp);
         let total_seconds = (self.duration_hours as u64) * 3600;
 
-        if elapsed_seconds >= total_seconds {
-            0
-        } else {
-            total_seconds - elapsed_seconds
-        }
+        total_seconds.saturating_sub(elapsed_seconds)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TVModeStatus {
     pub active: bool,
     pub user: Option<String>,
@@ -149,13 +153,11 @@ pub struct TVModeStatus {
 
 impl TVModeStatus {
     pub fn new() -> Self {
-        Self {
-            active: false,
-            user: None,
-            sleep_timer: SleepTimer::new(),
-        }
+        Self::default()
     }
+}
 
+impl TVModeStatus {
     // Helper method to update sleep timer remaining time before serialization
     pub fn with_updated_timer(&mut self) -> &Self {
         self.sleep_timer.update_remaining_time();
@@ -185,10 +187,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
         Ok(config) => config,
         Err(e) => {
             eprintln!("Failed to load config from {:?}: {}", config_path, e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ));
+            return Err(std::io::Error::other(e.to_string()));
         }
     };
 
@@ -197,10 +196,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
         Ok(client) => client,
         Err(e) => {
             eprintln!("Failed to create RPC client: {}", e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ));
+            return Err(std::io::Error::other(e.to_string()));
         }
     };
 
@@ -212,7 +208,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
                 "Failed to load show mappings from {:?}: {}",
                 mappings_path, e
             );
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
+            return Err(std::io::Error::other(e));
         }
     };
 

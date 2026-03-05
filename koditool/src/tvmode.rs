@@ -10,8 +10,6 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use serde::Deserialize;
-use serde_yaml;
-
 #[derive(Debug, Deserialize)]
 struct ShowMappings {
     #[serde(flatten)]
@@ -24,7 +22,7 @@ fn load_show_mappings() -> Result<ShowMappings, Box<dyn std::error::Error>> {
     Ok(show_mappings)
 }
 
-fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
+fn select_random_show_name(shows: &[String]) -> Option<&String> {
     shows.choose(&mut rand::rng())
 }
 
@@ -44,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_shows = show_mappings
         .shows
         .get(user)
-        .ok_or_else(|| "User not found")?;
+        .ok_or("User not found")?;
 
     if user_shows.is_empty() {
         eprintln!("No shows available for this user.");
@@ -63,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\n[!] no show playing, calling other Rust binary...\n");
 
             let selected_episode = rpc_client
-                .select_random_episode_by_title(&selected_show_name)
+                .select_random_episode_by_title(selected_show_name)
                 .await?;
             rpc_client.rpc_play(&selected_episode).await?;
 
