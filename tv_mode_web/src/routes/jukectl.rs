@@ -16,8 +16,8 @@ struct JukectlContext {
 }
 
 #[derive(Serialize)]
-struct ErrorResponse {
-    error: String,
+pub struct ErrorResponse {
+    pub error: String,
 }
 
 type ApiResponse<T> = Result<Json<T>, Custom<Json<ErrorResponse>>>;
