@@ -1,11 +1,10 @@
 use koditool::{Authorization, Config, RpcClient, SelectedEpisode};
 
-use mockito::{mock, server_url, Mock};
+use mockito::{mock, server_url};
 use rand::prelude::IndexedMutRandom;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
-use serde_json::{json, Value};
-use std::error::Error;
+use serde_json::json;
 
 #[cfg(test)]
 mod tests {
@@ -23,7 +22,7 @@ mod tests {
     // Helper to create a client with mocked config
     fn test_client() -> RpcClient {
         let config = test_config();
-        RpcClient::new(config).unwrap()
+        RpcClient::new(config).unwrap().with_seed(Default::default())
     }
 
     #[tokio::test]
@@ -135,7 +134,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(result.episode_id, 101);
+        assert_eq!(result._episode_id, 101);
         assert_eq!(result.episode_file_path, "/path/to/episode.mp4");
 
         // Verify all mocks were called
@@ -172,7 +171,7 @@ mod tests {
 
         let client = test_client();
         let episode = SelectedEpisode {
-            episode_id: 101,
+            _episode_id: 101,
             episode_file_path: "/path/to/test_episode.mp4".to_string(),
         };
 

@@ -209,5 +209,5 @@ fn select_random_show_name<'a>(shows: &'a [String]) -> Option<&'a String> {
     if shows.is_empty() {
         return None;
     }
-    shows.choose(&mut rand::thread_rng())
+    shows.choose(&mut rand::rng())
 }

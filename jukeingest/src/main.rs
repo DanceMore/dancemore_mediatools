@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "[+] Using Threshold (in days):".red(),
             cli.threshold_days.to_string().red().bold()
         );
-        now - Duration::from_secs((cli.threshold_days as u64 * 24 * 60 * 60))
+        now - Duration::from_secs(cli.threshold_days as u64 * 24 * 60 * 60)
     };
 
     println!(
