@@ -315,6 +315,88 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_artists() {
+        let _mock = mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({"method": "AudioLibrary.GetArtists"})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "artists": [
+                        { "artistid": 1, "artist": "Daft Punk" }
+                    ],
+                    "limits": { "end": 1, "start": 0, "total": 1 }
+                }
+            }).to_string())
+            .create();
+
+        let client = test_client();
+        let artists = client.get_artists().await.unwrap();
+        assert_eq!(artists.len(), 1);
+        assert_eq!(artists[0].artist, "Daft Punk");
+        assert_eq!(artists[0].artistid, 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_albums() {
+        let _mock = mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({
+                "method": "AudioLibrary.GetAlbums",
+                "params": { "filter": { "artistid": 1 } }
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "albums": [
+                        { "albumid": 1, "label": "Discovery" }
+                    ],
+                    "limits": { "end": 1, "start": 0, "total": 1 }
+                }
+            }).to_string())
+            .create();
+
+        let client = test_client();
+        let albums = client.get_albums(Some(1)).await.unwrap();
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].label, "Discovery");
+        assert_eq!(albums[0].albumid, 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_songs() {
+        let _mock = mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({
+                "method": "AudioLibrary.GetSongs",
+                "params": { "filter": { "albumid": 1 } }
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {
+                    "songs": [
+                        { "songid": 1, "label": "One More Time" }
+                    ],
+                    "limits": { "end": 1, "start": 0, "total": 1 }
+                }
+            }).to_string())
+            .create();
+
+        let client = test_client();
+        let songs = client.get_songs(Some(1)).await.unwrap();
+        assert_eq!(songs.len(), 1);
+        assert_eq!(songs[0].label, "One More Time");
+        assert_eq!(songs[0].songid, 1);
+    }
+
+
+    #[tokio::test]
     async fn test_invalid_json_response() {
         let _mock = mock("POST", "/jsonrpc")
             .with_status(200)
