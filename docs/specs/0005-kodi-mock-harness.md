@@ -38,7 +38,7 @@ async fn test_rpc_timeout_handling() {
 
     let client = create_test_client_with_url(&server.url()).await;
     let response = client.get("/api/status").dispatch().await;
-    
+
     // Verification: Status should be 200 but message should indicate timeout/error
     let body: StatusResponse = response.into_json().await.unwrap();
     assert_eq!(body.status, "error");
