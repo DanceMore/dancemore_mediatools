@@ -37,7 +37,7 @@ impl Scanner {
     }
 
     pub fn scan(&mut self) -> Result<(), Box<dyn Error>> {
-        let dir = self.args.directory.clone();
+        let dir = fs::canonicalize(&self.args.directory)?;
         self.scan_internal(&dir)
     }
 
