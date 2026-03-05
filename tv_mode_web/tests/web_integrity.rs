@@ -57,3 +57,48 @@ async fn create_test_client() -> Client {
     let rocket = tv_mode_web::build_rocket();
     Client::tracked(rocket).await.expect("valid rocket instance")
 }
+
+#[rocket::async_test]
+async fn test_api_users() {
+    let client = create_test_client().await;
+    let response = client.get("/api/users").dispatch().await;
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().await.unwrap();
+    assert!(body.contains("user1"));
+    assert!(body.contains("Show 1"));
+}
+
+#[rocket::async_test]
+async fn test_api_play_and_status() {
+    let client = create_test_client().await;
+
+    // Initially inactive
+    let response = client.get("/api/status").dispatch().await;
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().await.unwrap();
+    // Since we don't have a real Kodi server, it might report an error or inactive
+    // Based on the mock in create_test_client, it points to localhost:8080 which is not running
+    assert!(body.contains("\"status\":\"error\"") || body.contains("\"status\":\"inactive\""));
+
+    // Enable TV mode for user1
+    let response = client.post("/api/play/user1").dispatch().await;
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().await.unwrap();
+    assert!(body.contains("\"status\":\"success\""));
+    assert!(body.contains("Enabled TV mode for user 'user1'"));
+
+    // Check status again
+    let response = client.get("/api/status").dispatch().await;
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().await.unwrap();
+    assert!(body.contains("\"user\":\"user1\""));
+}
+
+#[rocket::async_test]
+async fn test_api_play_invalid_user() {
+    let client = create_test_client().await;
+    let response = client.post("/api/play/nonexistent").dispatch().await;
+    assert_eq!(response.status(), Status::BadRequest);
+    let body = response.into_string().await.unwrap();
+    assert!(body.contains("User 'nonexistent' not found"));
+}
