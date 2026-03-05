@@ -171,6 +171,28 @@ pub struct AppState {
     pub show_mappings: Arc<RwLock<ShowMappings>>,
     pub tv_mode: Arc<RwLock<TVModeStatus>>,
     pub jukectl_channels: Arc<RwLock<Vec<JukectlChannel>>>,
+    pub config_dir: String,
+}
+
+impl AppState {
+    pub async fn save_to_disk(&self) {
+        let tv_mode = self.tv_mode.read().await;
+        let path = Path::new(&self.config_dir).join("persistent_state.json");
+
+        let json = match serde_json::to_string_pretty(&*tv_mode) {
+            Ok(json) => json,
+            Err(e) => {
+                error!("Failed to serialize TV mode state: {}", e);
+                return;
+            }
+        };
+
+        if let Err(e) = std::fs::write(&path, json) {
+            error!("Failed to save TV mode state to {:?}: {}", path, e);
+        } else {
+            debug!("Saved TV mode state to {:?}", path);
+        }
+    }
 }
 
 pub fn initialize() -> Result<AppState, std::io::Error> {
@@ -181,6 +203,7 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
     let config_path = Path::new(&config_dir).join("config.yml");
     let mappings_path = Path::new(&config_dir).join("show_mappings.yml");
     let jukectl_path = Path::new(&config_dir).join("jukectl_channels.yml");
+    let persistent_path = Path::new(&config_dir).join("persistent_state.json");
 
     // Load config
     let config = match Config::load(config_path.to_str().unwrap()) {
@@ -224,12 +247,43 @@ pub fn initialize() -> Result<AppState, std::io::Error> {
         }
     };
 
+    // Load persistent state (optional)
+    let tv_mode = if persistent_path.exists() {
+        match std::fs::read_to_string(&persistent_path) {
+            Ok(content) => match serde_json::from_str::<TVModeStatus>(&content) {
+                Ok(mut state) => {
+                    info!("Loaded persistent TV mode state from {:?}", persistent_path);
+                    // Make sure to update the timer's remaining time
+                    state.sleep_timer.update_remaining_time();
+                    state
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to parse persistent state from {:?}: {}. Using default.",
+                        persistent_path, e
+                    );
+                    TVModeStatus::new()
+                }
+            },
+            Err(e) => {
+                warn!(
+                    "Failed to read persistent state from {:?}: {}. Using default.",
+                    persistent_path, e
+                );
+                TVModeStatus::new()
+            }
+        }
+    } else {
+        TVModeStatus::new()
+    };
+
     // Create app state with mutexes and Arc
     let app_state = AppState {
         rpc_client: Arc::new(RwLock::new(rpc_client)),
         show_mappings: Arc::new(RwLock::new(show_mappings)),
-        tv_mode: Arc::new(RwLock::new(TVModeStatus::new())),
+        tv_mode: Arc::new(RwLock::new(tv_mode)),
         jukectl_channels: Arc::new(RwLock::new(jukectl_channels)),
+        config_dir,
     };
 
     Ok(app_state)
