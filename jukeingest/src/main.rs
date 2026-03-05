@@ -4,6 +4,7 @@ use dirs::home_dir;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
+use std::path::Path;
 use std::time::{Duration, SystemTime};
 use walkdir::WalkDir;
 
@@ -12,183 +13,144 @@ use clap::Parser;
 const PLAYLISTS_FOLDER: &str = "playlists/";
 
 #[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
     /// Enable debug output
     #[arg(long)]
     debug: bool,
 
-    /// do not write to file (dry-run)
+    /// Do not write to file (dry-run)
     #[arg(long)]
     dryrun: bool,
 
     /// Sets the root search directory
-    #[clap(short, long)]
+    #[arg(short, long)]
     directory: String,
 
     /// Sets the path to the playlist file
-    #[clap(short, long)]
+    #[arg(short, long)]
     playlist: String,
 
-    // TODO: these two need to conflict
     /// Sets the threshold in days
-    #[arg(short, long, default_value = "30")]
+    #[arg(short, long, default_value_t = 30)]
     threshold_days: u32,
 
-    /// auto detect day threshold based off .last_run
+    /// Auto-detect day threshold based on .last_run
     #[arg(long)]
     detect: bool,
 }
 
-fn main() {
-    let cli: Cli = Cli::parse();
-
-    let debug = &cli.debug;
-    let dryrun = &cli.dryrun;
-    let root_path = &cli.directory;
-    let playlist_path = &cli.playlist;
-    let threshold_days = &cli.threshold_days;
-    let detect = &cli.detect;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
 
     let now = SystemTime::now();
-
-    // last run logic
-    #[allow(unused_assignments)] // stop lying plz
-    let mut calcd_threshold_days: u64 = 0;
     let last_run_timestamp = read_last_run_timestamp().unwrap_or(None);
 
     if let Some(last_run) = last_run_timestamp {
-        let difference = now
-            .duration_since(last_run)
-            .unwrap_or(Duration::from_secs(0));
-        calcd_threshold_days = difference.as_secs() / (24 * 60 * 60); // Convert seconds to days
+        let difference = now.duration_since(last_run).unwrap_or(Duration::from_secs(0));
+        let days_since_last_run = difference.as_secs() / (24 * 60 * 60);
 
         println!(
             "{} {}",
-            format!("[-] Last run timestamp:").cyan(),
+            "[-] Last run timestamp:".cyan(),
             format_system_time(last_run).cyan().bold()
         );
         println!(
             "{}       {}",
-            format!("[+] Days since last run:").cyan(),
-            format!("{}", calcd_threshold_days).cyan().bold()
+            "[+] Days since last run:".cyan(),
+            days_since_last_run.to_string().cyan().bold()
         );
     } else {
         println!("{}", "[-] No last run timestamp found.".yellow());
     }
 
-    // actually set the timestamp based on CLI args
-    #[allow(unused_assignments)] // stop lying plz
-    let mut threshold_time: SystemTime = last_run_timestamp.unwrap_or(now);
-    if *detect {
-        if last_run_timestamp.is_none() {
-            eprintln!("Error: --detect used without a valid last run timestamp.");
-            std::process::exit(1);
-        }
-        threshold_time = last_run_timestamp.unwrap();
-        println!(
-            "{}",
-            format!("[+] Using last_run timestamp directly...").yellow(),
-        );
+    let threshold_time = if cli.detect {
+        let last_run = last_run_timestamp.ok_or("Error: --detect used without a valid last run timestamp.")?;
+        println!("{}", "[+] Using last_run timestamp directly...".yellow());
+        last_run
     } else {
-        threshold_time = now - Duration::from_secs((threshold_days * 24 * 60 * 60).into());
         println!(
             "{} {}",
-            format!("[+] Using Threshold (in days):").red(),
-            format!("{}", threshold_days).red().bold()
+            "[+] Using Threshold (in days):".red(),
+            cli.threshold_days.to_string().red().bold()
         );
-    }
+        now - Duration::from_secs((cli.threshold_days as u64 * 24 * 60 * 60))
+    };
 
     println!(
         "{}    {}",
-        format!("[-] Threshold time:").red(),
-        format!("{}", format_system_time(threshold_time))
-            .red()
-            .bold()
+        "[-] Threshold time:".red(),
+        format_system_time(threshold_time).red().bold()
     );
 
-    // build it for append-only
-    let mut playlist_file = match OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(playlist_path)
-    {
-        Ok(file) => file,
-        Err(err) => {
-            eprintln!("Error opening playlist file: {}", err);
-            return;
+    let mut playlist = Vec::new();
+    process_directory(&cli.directory, threshold_time, &mut playlist, cli.debug)?;
+
+    if cli.dryrun {
+        println!("{}", "[!] dry-run, doing no work...".yellow());
+        for item in playlist {
+            println!("{}", item);
         }
-    };
-
-    let stdout = io::stdout();
-    let mut playlist_stdout = io::BufWriter::new(stdout.lock());
-
-    if *dryrun {
-        eprintln!("{}", format!("[!] dry-run, doing no work...").yellow());
+    } else {
+        write_playlist(&cli.playlist, &playlist)?;
+        save_last_run_timestamp()?;
+        println!(
+            "{} {}",
+            "[+] Playlist file successfully updated at:".green(),
+            cli.playlist.green().bold()
+        );
     }
+
+    Ok(())
+}
+
+fn process_directory(root_path: &str, threshold_time: SystemTime, playlist: &mut Vec<String>, debug: bool) -> io::Result<()> {
+    let playlists_path = Path::new(root_path).join(PLAYLISTS_FOLDER);
 
     for entry in WalkDir::new(root_path)
         .into_iter()
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .metadata()
-                .map(|m| {
-                    m.is_file()
-                        && m.modified()
-                            .ok()
-                            .map_or(false, |mod_time| mod_time > threshold_time)
-                })
-                .unwrap_or(false)
-                && !entry
-                    .path()
-                    .starts_with(&(root_path.to_owned() + PLAYLISTS_FOLDER))
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.metadata().map(|m| {
+                m.is_file() && m.modified().map_or(false, |mod_time| mod_time > threshold_time)
+            }).unwrap_or(false) && !e.path().starts_with(&playlists_path)
         })
     {
         let path = entry.path();
-        if let Ok(Some(file_name)) = path.strip_prefix(root_path).and_then(|p| Ok(p.to_str())) {
-            if *debug {
-                if let Err(err) = writeln!(playlist_stdout, "{}", file_name) {
-                    eprintln!("Error writing to stdout: {}", err);
+        if let Ok(relative_path) = path.strip_prefix(root_path) {
+            if let Some(path_str) = relative_path.to_str() {
+                if debug {
+                    println!("Found: {}", path_str);
                 }
-                let _ = playlist_stdout.flush();
+                playlist.push(path_str.to_string());
             }
-
-            if !(*dryrun) {
-                if let Err(err) = writeln!(playlist_file, "{}", file_name) {
-                    eprintln!("Error writing to playlist file: {}", err);
-                }
-            }
-        } else {
-            eprintln!("Error stripping prefix for path: {:?}", path);
         }
     }
+    Ok(())
+}
 
-    println!(
-        "{} {}",
-        format!("[+] Playlist file successfully updated at:").green(),
-        format!("{}", playlist_path).green().bold()
-    );
-    println!(
-        "{}",
-        format!("[-] writing last_run timestamp file ...").green()
-    );
+fn write_playlist(playlist_path: &str, playlist: &[String]) -> io::Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(playlist_path)?;
 
-    save_last_run_timestamp().unwrap_or_else(|err| {
-        eprintln!("Error saving last run timestamp: {}", err);
-    });
+    for item in playlist {
+        writeln!(file, "{}", item)?;
+    }
+    Ok(())
 }
 
 fn save_last_run_timestamp() -> io::Result<()> {
-    // Get the user's home directory
     if let Some(mut home_dir) = home_dir() {
         home_dir.push(".jukeingest");
-
-        // Create .jukeingest directory if it doesn't exist
         fs::create_dir_all(&home_dir)?;
-
         home_dir.push("last_run");
 
-        let timestamp = SystemTime::now();
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+            .as_secs();
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -196,27 +158,13 @@ fn save_last_run_timestamp() -> io::Result<()> {
             .truncate(true)
             .open(home_dir)?;
 
-        // Use map_err to convert SystemTimeError to io::Error
-        write!(
-            file,
-            "{}",
-            timestamp
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-                .as_secs()
-        )?;
-
+        write!(file, "{}", timestamp)?;
         return Ok(());
     }
-
-    Err(io::Error::new(
-        io::ErrorKind::Other,
-        "Failed to determine home directory",
-    ))
+    Err(io::Error::new(io::ErrorKind::Other, "Failed to determine home directory"))
 }
 
 fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {
-    // Get the user's home directory
     if let Some(mut home_dir) = home_dir() {
         home_dir.push(".jukeingest");
         home_dir.push("last_run");
@@ -225,13 +173,11 @@ fn read_last_run_timestamp() -> io::Result<Option<SystemTime>> {
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
 
-            if let Ok(parsed_date) = contents.trim().parse::<u64>() {
-                let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(parsed_date);
-                return Ok(Some(timestamp));
+            if let Ok(parsed_secs) = contents.trim().parse::<u64>() {
+                return Ok(Some(SystemTime::UNIX_EPOCH + Duration::from_secs(parsed_secs)));
             }
         }
     }
-
     Ok(None)
 }
 
