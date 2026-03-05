@@ -10,7 +10,6 @@ use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
 use std::error::Error;
-use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
@@ -161,7 +160,15 @@ impl RpcClient {
         // Randomly select an episode ID
 
         let mut seed_array = [0u8; 32];
-        let _ = rng().try_fill_bytes(&mut seed_array);
+        if let Ok(seed_str) = std::env::var("KODITOOL_TEST_SEED") {
+            if let Ok(seed_val) = seed_str.parse::<u64>() {
+                // For testing purposes, we use a simple way to seed from u64
+                let seed_bytes = seed_val.to_le_bytes();
+                seed_array[..8].copy_from_slice(&seed_bytes);
+            }
+        } else {
+            let _ = rng().try_fill_bytes(&mut seed_array);
+        }
 
         let mut rng = ChaCha12Rng::from_seed(seed_array);
         let random_episode_id = episode_ids

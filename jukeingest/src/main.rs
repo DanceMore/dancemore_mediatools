@@ -32,16 +32,20 @@ struct Cli {
     playlist: String,
 
     /// Sets the threshold in days
-    #[arg(short, long, default_value_t = 30)]
-    threshold_days: u32,
+    #[arg(short, long, conflicts_with = "detect", required_unless_present = "detect")]
+    threshold_days: Option<u32>,
 
     /// Auto-detect day threshold based on .last_run
-    #[arg(long)]
+    #[arg(long, conflicts_with = "threshold_days", required_unless_present = "threshold_days")]
     detect: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+
+    if !cli.detect && cli.threshold_days.is_none() {
+        return Err("Error: Either --detect or --threshold-days must be provided.".into());
+    }
 
     let now = SystemTime::now();
     let last_run_timestamp = read_last_run_timestamp().unwrap_or(None);
@@ -69,12 +73,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", "[+] Using last_run timestamp directly...".yellow());
         last_run
     } else {
+        let days = cli.threshold_days.unwrap();
         println!(
             "{} {}",
             "[+] Using Threshold (in days):".red(),
-            cli.threshold_days.to_string().red().bold()
+            days.to_string().red().bold()
         );
-        now - Duration::from_secs((cli.threshold_days as u64 * 24 * 60 * 60))
+        now - Duration::from_secs(days as u64 * 24 * 60 * 60)
     };
 
     println!(
@@ -93,7 +98,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         write_playlist(&cli.playlist, &playlist)?;
-        save_last_run_timestamp()?;
+        if !cli.dryrun {
+            save_last_run_timestamp()?;
+        }
         println!(
             "{} {}",
             "[+] Playlist file successfully updated at:".green(),

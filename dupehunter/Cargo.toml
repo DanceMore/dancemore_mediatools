@@ -13,7 +13,7 @@ tempfile = "3.10"
 
 [lib]
 name = "dupehunter"
-path = "src/main.rs"
+path = "src/lib.rs"
 
 [[bin]]
 name = "dupehunter"

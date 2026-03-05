@@ -1,11 +1,10 @@
 use koditool::{Authorization, Config, RpcClient, SelectedEpisode};
 
-use mockito::{mock, server_url, Mock};
+use mockito::{mock, server_url};
 use rand::prelude::IndexedMutRandom;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
-use serde_json::{json, Value};
-use std::error::Error;
+use serde_json::json;
 
 #[cfg(test)]
 mod tests {
@@ -129,13 +128,16 @@ mod tests {
 
         let client = test_client();
 
-        // Note: This test will always select episode 101 with our fixed seed
+        // Set the test seed to ensure deterministic results
+        std::env::set_var("KODITOOL_TEST_SEED", "42");
+
+        // Note: With seed 42, episode 102 is selected
         let result = client
             .select_random_episode_by_title("Friends")
             .await
             .unwrap();
 
-        assert_eq!(result.episode_id, 101);
+        assert_eq!(result.episode_id, 102);
         assert_eq!(result.episode_file_path, "/path/to/episode.mp4");
 
         // Verify all mocks were called
