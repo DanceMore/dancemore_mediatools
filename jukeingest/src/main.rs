@@ -4,16 +4,20 @@ use dirs::home_dir;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
-use std::path::Path;
 use std::time::{Duration, SystemTime};
 use walkdir::WalkDir;
 
-use clap::Parser;
+use clap::{ArgGroup, Parser};
 
 const PLAYLISTS_FOLDER: &str = "playlists/";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+#[command(group(
+    ArgGroup::new("mode")
+        .required(true)
+        .args(["threshold_days", "detect"]),
+))]
 struct Cli {
     /// Enable debug output
     #[arg(long)]
@@ -112,10 +116,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn process_directory(root_path: &str, threshold_time: SystemTime, playlist: &mut Vec<String>, debug: bool) -> io::Result<()> {
-    let playlists_path = Path::new(root_path).join(PLAYLISTS_FOLDER);
+    let canonical_root = fs::canonicalize(root_path)?;
+    let playlists_path = canonical_root.join(PLAYLISTS_FOLDER);
 
     for entry in WalkDir::new(root_path)
         .into_iter()
+        .filter_entry(|e| {
+            fs::canonicalize(e.path())
+                .map(|p| p != playlists_path)
+                .unwrap_or(true)
+        })
         .filter_map(|e| e.ok())
         .filter(|e| {
             e.metadata().map(|m| {
@@ -194,4 +204,37 @@ fn format_system_time(system_time: SystemTime) -> String {
         .with_timezone(&Local)
         .format("%Y-%m-%d %H:%M:%S")
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_process_directory_excludes_playlists() -> io::Result<()> {
+        let dir = tempdir()?;
+        let root_path = dir.path();
+
+        let playlists_dir = root_path.join("playlists");
+        fs::create_dir(&playlists_dir)?;
+
+        let file1 = root_path.join("song1.mp3");
+        fs::write(&file1, "audio")?;
+
+        let file2 = playlists_dir.join("excluded.m3u");
+        fs::write(&file2, "playlist")?;
+
+        let mut playlist = Vec::new();
+        let threshold_time = SystemTime::UNIX_EPOCH; // Include everything
+
+        process_directory(root_path.to_str().unwrap(), threshold_time, &mut playlist, false)?;
+
+        assert!(playlist.iter().any(|p| p.ends_with("song1.mp3")));
+        assert!(!playlist.iter().any(|p| p.contains("excluded.m3u")));
+        assert_eq!(playlist.len(), 1);
+
+        Ok(())
+    }
 }

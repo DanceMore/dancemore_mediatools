@@ -1140,6 +1140,7 @@ dependencies = [
  "clap",
  "colored",
  "dirs",
+ "tempfile",
  "walkdir",
 ]
 
