@@ -109,7 +109,7 @@ async fn create_test_client(kodi_url: Option<&str>) -> Client {
 
 #[rocket::async_test]
 async fn test_api_users() {
-    let client = create_test_client().await;
+    let client = create_test_client(None).await;
     let response = client.get("/api/users").dispatch().await;
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().await.unwrap();
@@ -119,7 +119,7 @@ async fn test_api_users() {
 
 #[rocket::async_test]
 async fn test_api_play_and_status() {
-    let client = create_test_client().await;
+    let client = create_test_client(None).await;
 
     // Initially inactive
     let response = client.get("/api/status").dispatch().await;
@@ -145,7 +145,7 @@ async fn test_api_play_and_status() {
 
 #[rocket::async_test]
 async fn test_api_play_invalid_user() {
-    let client = create_test_client().await;
+    let client = create_test_client(None).await;
     let response = client.post("/api/play/nonexistent").dispatch().await;
     assert_eq!(response.status(), Status::BadRequest);
     let body = response.into_string().await.unwrap();
