@@ -136,11 +136,14 @@ async fn process_scheduler_iteration(app_state: &AppState) -> Result<bool, Strin
     if tv_mode_status.sleep_timer.is_expired() {
         info!("Sleep timer expired, disabling TV mode");
         
-        let mut tv_mode_write = app_state.tv_mode.write().await;
-        tv_mode_write.active = false;
-        tv_mode_write.user = None;
-        tv_mode_write.sleep_timer.stop();
-        drop(tv_mode_write); // Release the write lock early
+        {
+            let mut tv_mode_write = app_state.tv_mode.write().await;
+            tv_mode_write.active = false;
+            tv_mode_write.user = None;
+            tv_mode_write.sleep_timer.stop();
+        }
+
+        app_state.save_to_disk().await;
         
         // Note: We just disable TV mode here. The media server will handle 
         // stopping playback naturally, or you can add a stop call here if 

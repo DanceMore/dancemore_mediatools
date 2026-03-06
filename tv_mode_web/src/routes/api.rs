@@ -144,15 +144,25 @@ pub async fn play_random_show(
         ));
     }
 
-    let mut tv_mode = app_state.tv_mode.write().await;
-    tv_mode.active = true;
-    tv_mode.user = Some(user.to_string());
+    {
+        let mut tv_mode = app_state.tv_mode.write().await;
+        tv_mode.active = true;
+        tv_mode.user = Some(user.to_string());
+
+        if sleep_timer_hours == 0 {
+            // No sleep timer
+            tv_mode.sleep_timer.stop();
+        } else {
+            // With sleep timer
+            tv_mode.sleep_timer.start(sleep_timer_hours);
+        }
+    }
+
+    app_state.save_to_disk().await;
     
+    let tv_mode = app_state.tv_mode.read().await;
     if sleep_timer_hours == 0 {
-        // No sleep timer
-        tv_mode.sleep_timer.stop();
         info!("Enabling TV mode for user: {} with no sleep timer", user);
-        
         Ok(Json(StatusResponse::success(
             format!(
                 "Enabled TV mode for user '{}' with {} shows available (no sleep timer)",
@@ -162,10 +172,7 @@ pub async fn play_random_show(
             Some(tv_mode.clone()),
         )))
     } else {
-        // With sleep timer
-        tv_mode.sleep_timer.start(sleep_timer_hours);
         info!("Enabling TV mode for user: {} with {}h sleep timer", user, sleep_timer_hours);
-
         Ok(Json(StatusResponse::success(
             format!(
                 "Enabled TV mode for user '{}' with {} shows available ({}h sleep timer)",
@@ -213,11 +220,16 @@ pub async fn play_random_show_legacy(
 
     info!("Enabling TV mode for user: {} with no sleep timer (legacy endpoint)", user);
 
-    let mut tv_mode = app_state.tv_mode.write().await;
-    tv_mode.active = true;
-    tv_mode.user = Some(user.to_string());
-    // Don't start sleep timer for legacy endpoint
-    tv_mode.sleep_timer.stop();
+    {
+        let mut tv_mode = app_state.tv_mode.write().await;
+        tv_mode.active = true;
+        tv_mode.user = Some(user.to_string());
+        // Don't start sleep timer for legacy endpoint
+        tv_mode.sleep_timer.stop();
+    }
+
+    app_state.save_to_disk().await;
+    let tv_mode = app_state.tv_mode.read().await;
 
     Ok(Json(StatusResponse::success(
         format!(
@@ -246,20 +258,25 @@ pub async fn set_sleep_timer(
         ));
     }
 
-    let mut tv_mode = app_state.tv_mode.write().await;
-    
-    if !tv_mode.active {
-        return Err(Custom(
-            Status::BadRequest,
-            Json(StatusResponse::error(
-                "Cannot set sleep timer when TV mode is not active".to_string(),
-                Some(tv_mode.clone()),
-                None,
-            )),
-        ));
+    {
+        let mut tv_mode = app_state.tv_mode.write().await;
+
+        if !tv_mode.active {
+            return Err(Custom(
+                Status::BadRequest,
+                Json(StatusResponse::error(
+                    "Cannot set sleep timer when TV mode is not active".to_string(),
+                    Some(tv_mode.clone()),
+                    None,
+                )),
+            ));
+        }
+
+        tv_mode.sleep_timer.start(request.hours);
     }
 
-    tv_mode.sleep_timer.start(request.hours);
+    app_state.save_to_disk().await;
+    let tv_mode = app_state.tv_mode.read().await;
 
     info!("Sleep timer updated to {} hours", request.hours);
 
@@ -271,20 +288,25 @@ pub async fn set_sleep_timer(
 
 #[delete("/api/sleep-timer")]
 pub async fn disable_sleep_timer(app_state: &State<AppState>) -> ApiResponse<StatusResponse> {
-    let mut tv_mode = app_state.tv_mode.write().await;
-    
-    if !tv_mode.active {
-        return Err(Custom(
-            Status::BadRequest,
-            Json(StatusResponse::error(
-                "Cannot disable sleep timer when TV mode is not active".to_string(),
-                Some(tv_mode.clone()),
-                None,
-            )),
-        ));
+    {
+        let mut tv_mode = app_state.tv_mode.write().await;
+
+        if !tv_mode.active {
+            return Err(Custom(
+                Status::BadRequest,
+                Json(StatusResponse::error(
+                    "Cannot disable sleep timer when TV mode is not active".to_string(),
+                    Some(tv_mode.clone()),
+                    None,
+                )),
+            ));
+        }
+
+        tv_mode.sleep_timer.stop();
     }
 
-    tv_mode.sleep_timer.stop();
+    app_state.save_to_disk().await;
+    let tv_mode = app_state.tv_mode.read().await;
 
     info!("Sleep timer disabled");
 
@@ -296,14 +318,22 @@ pub async fn disable_sleep_timer(app_state: &State<AppState>) -> ApiResponse<Sta
 
 #[post("/api/stop")]
 pub async fn stop_tv_mode(app_state: &State<AppState>) -> ApiResponse<StatusResponse> {
-    let mut tv_mode = app_state.tv_mode.write().await;
+    let was_active;
+    let previous_user;
 
-    let was_active = tv_mode.active;
-    let previous_user = tv_mode.user.clone();
+    {
+        let mut tv_mode = app_state.tv_mode.write().await;
 
-    tv_mode.active = false;
-    tv_mode.user = None;
-    tv_mode.sleep_timer.stop();
+        was_active = tv_mode.active;
+        previous_user = tv_mode.user.clone();
+
+        tv_mode.active = false;
+        tv_mode.user = None;
+        tv_mode.sleep_timer.stop();
+    }
+
+    app_state.save_to_disk().await;
+    let tv_mode = app_state.tv_mode.read().await;
 
     let message = if was_active {
         match previous_user {
