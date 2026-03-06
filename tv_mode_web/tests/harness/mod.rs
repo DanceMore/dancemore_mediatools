@@ -39,6 +39,64 @@ impl KodiMock {
             .await
     }
 
+    pub async fn mock_get_artists(&mut self) -> Mock {
+        self.server.mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({"method": "AudioLibrary.GetArtists"})))
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "id": 1,
+                "jsonrpc": "2.0",
+                "result": {
+                    "artists": [
+                        { "artistid": 1, "artist": "Daft Punk" },
+                        { "artistid": 2, "artist": "Radiohead" }
+                    ],
+                    "limits": { "end": 2, "start": 0, "total": 2 }
+                }
+            }).to_string())
+            .create_async()
+            .await
+    }
+
+    pub async fn mock_get_albums(&mut self) -> Mock {
+        self.server.mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({"method": "AudioLibrary.GetAlbums"})))
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "id": 1,
+                "jsonrpc": "2.0",
+                "result": {
+                    "albums": [
+                        { "albumid": 1, "label": "Discovery" },
+                        { "albumid": 2, "label": "Homework" }
+                    ],
+                    "limits": { "end": 2, "start": 0, "total": 2 }
+                }
+            }).to_string())
+            .create_async()
+            .await
+    }
+
+    pub async fn mock_get_songs(&mut self) -> Mock {
+        self.server.mock("POST", "/jsonrpc")
+            .match_body(mockito::Matcher::PartialJson(json!({"method": "AudioLibrary.GetSongs"})))
+            .with_header("content-type", "application/json")
+            .with_body(json!({
+                "id": 1,
+                "jsonrpc": "2.0",
+                "result": {
+                    "songs": [
+                        { "songid": 1, "label": "One More Time" },
+                        { "songid": 2, "label": "Digital Love" }
+                    ],
+                    "limits": { "end": 2, "start": 0, "total": 2 }
+                }
+            }).to_string())
+            .create_async()
+            .await
+    }
+
+
     pub async fn mock_get_episodes(&mut self) -> Mock {
         self.server.mock("POST", "/jsonrpc")
             .match_body(mockito::Matcher::PartialJson(json!({"method": "VideoLibrary.GetEpisodes"})))

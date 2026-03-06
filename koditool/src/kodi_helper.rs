@@ -6,7 +6,7 @@ use rand_chacha::ChaCha12Rng;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
 use std::error::Error;
@@ -58,6 +58,69 @@ pub struct SelectedEpisode {
     pub _episode_id: u64,
     pub episode_file_path: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct Limits {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct Artist {
+    pub artistid: u64,
+    pub artist: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct Album {
+    pub albumid: u64,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct Song {
+    pub songid: u64,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct GetArtistsParams {
+    pub properties: Vec<String>,
+    pub limits: Limits,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct AudioFilter {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artistid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub albumid: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct GetAlbumsParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<AudioFilter>,
+    pub properties: Vec<String>,
+    pub limits: Limits,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[allow(dead_code)]
+pub struct GetSongsParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter: Option<AudioFilter>,
+    pub properties: Vec<String>,
+    pub limits: Limits,
+}
+
 
 // Implement Display for default {} formatting
 impl std::fmt::Display for SelectedEpisode {
@@ -284,6 +347,84 @@ impl RpcClient {
 
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub async fn get_artists(&self) -> Result<Vec<Artist>, Box<dyn Error>> {
+        let params = GetArtistsParams {
+            properties: vec!["artist".to_string()],
+            limits: Limits {
+                start: 0,
+                end: 1000,
+            },
+        };
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "method": "AudioLibrary.GetArtists",
+            "params": params,
+            "id": 1
+        });
+
+        let response = self.rpc_call(&request).await?;
+        let artists_vec: Vec<Artist> = serde_json::from_value(response["result"]["artists"].clone())
+            .map_err(|_| "Artists not found in response")?;
+        Ok(artists_vec)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_albums(&self, artist_id: Option<u64>) -> Result<Vec<Album>, Box<dyn Error>> {
+        let params = GetAlbumsParams {
+            filter: artist_id.map(|id| AudioFilter {
+                artistid: Some(id),
+                albumid: None,
+            }),
+            properties: vec!["label".to_string()],
+            limits: Limits {
+                start: 0,
+                end: 1000,
+            },
+        };
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "method": "AudioLibrary.GetAlbums",
+            "params": params,
+            "id": 1
+        });
+
+        let response = self.rpc_call(&request).await?;
+        let albums_vec: Vec<Album> = serde_json::from_value(response["result"]["albums"].clone())
+            .map_err(|_| "Albums not found in response")?;
+        Ok(albums_vec)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_songs(&self, album_id: Option<u64>) -> Result<Vec<Song>, Box<dyn Error>> {
+        let params = GetSongsParams {
+            filter: album_id.map(|id| AudioFilter {
+                artistid: None,
+                albumid: Some(id),
+            }),
+            properties: vec!["label".to_string()],
+            limits: Limits {
+                start: 0,
+                end: 1000,
+            },
+        };
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "method": "AudioLibrary.GetSongs",
+            "params": params,
+            "id": 1
+        });
+
+        let response = self.rpc_call(&request).await?;
+        let songs_vec: Vec<Song> = serde_json::from_value(response["result"]["songs"].clone())
+            .map_err(|_| "Songs not found in response")?;
+        Ok(songs_vec)
+    }
+
 
     #[allow(dead_code)]
     pub async fn is_active(&self) -> Result<bool, Box<dyn Error>> {
